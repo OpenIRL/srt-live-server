@@ -161,7 +161,7 @@ int CSLSSrt::libsrt_setup(int port)
 
     m_sc.port = port;
 
-    hints.ai_family = AF_INET;//AF_UNSPEC;
+    hints.ai_family = AF_INET6;//AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
     snprintf(portstr, sizeof(portstr), "%d", s->port);
     hints.ai_flags |= AI_PASSIVE;
@@ -188,6 +188,9 @@ int CSLSSrt::libsrt_setup(int port)
     }
 */
 
+    int enable = 0;
+    srt_setsockopt(fd, SOL_SOCKET, SRTO_IPV6ONLY, &enable, sizeof(enable));
+    
     /* Set the socket's send or receive buffer sizes, if specified.
        If unspecified or setting fails, system default is used. */
     if (s->latency > 0) {
@@ -232,10 +235,10 @@ int CSLSSrt::libsrt_listen(int backlog)
 
 int CSLSSrt::libsrt_accept()
 {
-    struct sockaddr_in scl;
+    struct sockaddr_in6 scl;
     int sclen = sizeof(scl);
-    char ip[30] = {0};
-    struct sockaddr_in * addrtmp;
+    char ip[INET6_ADDRSTRLEN] = {0};
+    struct sockaddr_in6 * addrtmp;
 
     int new_sock = srt_accept(m_sc.fd, (struct sockaddr*)&scl, &sclen);//NULL, NULL);//(sockaddr*)&scl, &sclen);
     if (new_sock == SRT_INVALID_SOCK) {
@@ -244,10 +247,10 @@ int CSLSSrt::libsrt_accept()
                    this, m_sc.fd, err_no);
         return SLS_ERROR;
     }
-    addrtmp = (struct sockaddr_in *)&scl;
-    inet_ntop(AF_INET, &addrtmp->sin_addr, ip, sizeof(ip));
+    addrtmp = (struct sockaddr_in6 *)&scl;
+    inet_ntop(AF_INET6, &addrtmp->sin6_addr, ip, INET6_ADDRSTRLEN);
     sls_log(SLS_LOG_INFO, "[%p]CSLSSrt::libsrt_accept ok, new sock=%d, %s:%d.",
-               this, new_sock, ip, ntohs(addrtmp->sin_port));
+               this, new_sock, ip, ntohs(addrtmp->sin6_port));
 
     return new_sock;
 }
@@ -413,14 +416,14 @@ int  CSLSSrt::libsrt_getsockstate()
 int CSLSSrt::libsrt_getpeeraddr(char * peer_name, int& port)
 {
     int ret = SLS_ERROR;
-    struct sockaddr_in peer_addr;
+    struct sockaddr_in6 peer_addr;
     int peer_addr_len = sizeof(peer_addr);
 
     if (strlen(m_peer_name) == 0 || m_peer_port == 0) {
         ret = srt_getpeername(m_sc.fd, (struct sockaddr *)&peer_addr, &peer_addr_len);
         if (0 == ret) {
-            inet_ntop(AF_INET, &peer_addr.sin_addr, m_peer_name, sizeof(m_peer_name));
-            m_peer_port = ntohs(peer_addr.sin_port);
+            inet_ntop(AF_INET6, &peer_addr.sin6_addr, m_peer_name, sizeof(m_peer_name));
+            m_peer_port = ntohs(peer_addr.sin6_port);
 
             strcpy(peer_name, m_peer_name);
             port = m_peer_port;
