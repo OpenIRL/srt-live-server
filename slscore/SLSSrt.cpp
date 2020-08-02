@@ -434,3 +434,11 @@ int CSLSSrt::libsrt_getpeeraddr(char * peer_name, int& port)
     return ret;
 }
 
+int CSLSSrt::libsrt_get_statistics(SRT_TRACEBSTATS *currentStats) {
+    int result = srt_bistats(m_sc.fd, currentStats, 1, 1);
+    if (result == SLS_ERROR) {
+        return SLS_ERROR;
+    }
+    return SLS_OK;
+}
+

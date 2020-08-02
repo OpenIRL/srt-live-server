@@ -488,6 +488,18 @@ int CSLSRole::handler_read_data(int64_t *last_read_time)
     return ret;
 }
 
+int CSLSRole::get_statistics(SRT_TRACEBSTATS *currentStats) {
+    if (m_srt) {
+        m_srt->libsrt_get_statistics(currentStats);
+        return SLS_OK;
+    }
+    return SLS_ERROR;
+}
+
+int CSLSRole::get_bitrate() {
+    return m_kbitrate;
+}
+
 int CSLSRole::handler_write_data()
 {
 	int ret = 0;

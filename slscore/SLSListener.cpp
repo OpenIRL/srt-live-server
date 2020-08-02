@@ -371,13 +371,18 @@ int CSLSListener::handler()
         delete srt;
     	return client_count;
     }
-
+    
+    if (strlen(sid) == 0) {
+        strcpy(sid, "uplive.sls.com/live/test");
+    }
+    
     if (0 != srt->libsrt_split_sid(sid, host_name, app_name, stream_name)) {
         sls_log(SLS_LOG_ERROR, "[%p]CSLSListener::handler, [%s:%d], parse sid='%s' failed.", this, peer_name, peer_port, sid);
     	srt->libsrt_close();
     	delete srt;
     	return client_count;
     }
+    
     sls_log(SLS_LOG_INFO, "[%p]CSLSListener::handler, [%s:%d], sid '%s/%s/%s'",
             this, peer_name, peer_port, host_name, app_name, stream_name);
 

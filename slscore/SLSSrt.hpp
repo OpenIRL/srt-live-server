@@ -35,7 +35,7 @@ enum SRTMode {
 };
 
 typedef struct SRTContext {
-    int fd;
+    SRTSOCKET fd;
     int eid;
     int flag;
     int port;
@@ -73,6 +73,9 @@ typedef struct SRTContext {
     char *smoother;
     int messageapi;
     SRT_TRANSTYPE transtype;
+    
+    double mbpsBandwidth;
+    double msRTT;
 } SRTContext;
 
 /**
@@ -117,6 +120,7 @@ public :
 
     int  libsrt_getsockstate();
     int  libsrt_getpeeraddr(char * peer_name, int& port);
+    int libsrt_get_statistics(SRT_TRACEBSTATS *currentStats);
 
     void libsrt_set_latency(int latency);
 

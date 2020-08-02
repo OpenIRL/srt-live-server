@@ -78,6 +78,7 @@ public :
     int  stop();
     int  reload();
     int  single_thread_handler();
+    CSLSRole *  check_publisher();
     int  check_invalid();
     bool is_single_thread();
 

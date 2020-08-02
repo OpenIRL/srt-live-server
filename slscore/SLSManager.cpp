@@ -157,6 +157,16 @@ int CSLSManager::start()
 
 }
 
+CSLSRole * CSLSManager::check_publisher() {
+    for (CSLSGroup *group: m_workers) {
+        CSLSRole *role = group->find_publisher();
+        if (role != NULL) {
+            return role;
+        }
+    }
+    return NULL;
+}
+
 int CSLSManager::single_thread_handler()
 {
     if (m_single_group) {

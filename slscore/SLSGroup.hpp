@@ -50,6 +50,7 @@ public :
     void set_role_list(CSLSRoleList *list_role);
     void set_worker_connections(int n);
     void set_worker_number(int n);
+    CSLSRole * find_publisher();
 
     virtual int     handler();
 

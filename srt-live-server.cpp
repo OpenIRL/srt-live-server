@@ -26,8 +26,10 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <httplib.h>
 
 using namespace std;
+using namespace httplib;
 
 #include "SLSLog.hpp"
 #include "SLSManager.hpp"
@@ -48,6 +50,8 @@ static void reload_handler(int s){
     printf("\ncaught signal %d, reload.\n",s);
     b_reload = true;
 }
+
+Server svr;
 
 /**
  * usage information
@@ -71,6 +75,10 @@ static sls_conf_cmd_t  conf_cmd_opt[] = {
     SLS_SET_OPT(string, l, log_level,      "log level: fatal/error/warning/info/debug/trace", 1, 1023),
 //  SLS_SET_OPT(int, x, xxx,          "", 1, 100),//example
 };
+
+void httpWorker() {
+    svr.listen("0.0.0.0", 8181);    
+}
 
 int main(int argc, char* argv[])
 {
@@ -158,6 +166,25 @@ int main(int argc, char* argv[])
     if (strlen(conf_srt->stat_post_url) > 0)
         http_stat_client->open(conf_srt->stat_post_url, stat_method, conf_srt->stat_post_interval);
 
+    svr.Get("/stats", [&](const Request& req, Response& res) {
+        if (sls_manager != NULL) {
+            CSLSRole *role = sls_manager->check_publisher();
+            if (role == NULL) {
+                res.set_content("{\"error\":\"no publisher\"}", "application/json");
+                return;
+            }
+            SRT_TRACEBSTATS stats;
+            role->get_statistics(&stats);
+            char tmp[STR_MAX_LEN] = {0};
+            sprintf(tmp, "{\"rtt\":%.1f,\"mbps\":%.04f,\"bitrate\":%d}", stats.msRTT, stats.mbpsBandwidth, role->get_bitrate());
+            res.set_content(tmp, "application/json");
+        } else {
+            res.set_content("not ok", "text/plain");        
+        }
+    });
+    
+    std::thread(std::bind(&httpWorker)).detach();
+    
 	while(!b_exit)
 	{
 		int64_t cur_tm_ms = sls_gettime_ms();
