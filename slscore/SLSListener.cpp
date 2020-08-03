@@ -95,6 +95,7 @@ CSLSListener::CSLSListener()
     m_idle_streams_timeout      = UNLIMITED_TIMEOUT;
     m_idle_streams_timeout_role = 0;
     m_stat_info = std::string("");
+    memset(m_default_sid, 0, STR_MAX_LEN);
     memset(m_http_url_role, 0, URL_MAX_LEN);
     memset(m_record_hls_path_prefix, 0, URL_MAX_LEN);
 
@@ -174,6 +175,7 @@ int CSLSListener::init_conf_app()
     m_back_log                   = conf_server->backlog;
     m_idle_streams_timeout_role  = conf_server->idle_streams_timeout;
     strcpy(m_http_url_role, conf_server->on_event_url);
+    strcpy(m_default_sid, conf_server->default_sid);
     sls_log(SLS_LOG_INFO, "[%p]CSLSListener::init_conf_app, m_back_log=%d, m_idle_streams_timeout=%d.",
             this, m_back_log, m_idle_streams_timeout_role);
 
@@ -373,7 +375,11 @@ int CSLSListener::handler()
     }
     
     if (strlen(sid) == 0) {
-        strcpy(sid, "uplive.sls.com/live/test");
+        if (strlen(m_default_sid) != 0) {
+            strcpy(sid, m_default_sid);        
+        } else {
+            strcpy(sid, "uplive.sls.com/live/test");
+        }
     }
     
     if (0 != srt->libsrt_split_sid(sid, host_name, app_name, stream_name)) {

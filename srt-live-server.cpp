@@ -31,9 +31,12 @@
 using namespace std;
 using namespace httplib;
 
+#include "json.hpp"
 #include "SLSLog.hpp"
 #include "SLSManager.hpp"
 #include "HttpClient.hpp"
+
+using json = nlohmann::json;
 
 /*
  * ctrl + c controller
@@ -76,8 +79,8 @@ static sls_conf_cmd_t  conf_cmd_opt[] = {
 //  SLS_SET_OPT(int, x, xxx,          "", 1, 100),//example
 };
 
-void httpWorker() {
-    svr.listen("0.0.0.0", 8181);    
+void httpWorker(int bindPort) {
+    svr.listen("::", bindPort);    
 }
 
 int main(int argc, char* argv[])
@@ -167,23 +170,29 @@ int main(int argc, char* argv[])
         http_stat_client->open(conf_srt->stat_post_url, stat_method, conf_srt->stat_post_interval);
 
     svr.Get("/stats", [&](const Request& req, Response& res) {
+        json ret;
         if (sls_manager != NULL) {
-            CSLSRole *role = sls_manager->check_publisher();
-            if (role == NULL) {
-                res.set_content("{\"error\":\"no publisher\"}", "application/json");
-                return;
+            int clear = 0;
+            if (req.has_param("reset")) {
+                clear = 1;
             }
-            SRT_TRACEBSTATS stats;
-            role->get_statistics(&stats);
-            char tmp[STR_MAX_LEN] = {0};
-            sprintf(tmp, "{\"rtt\":%.1f,\"mbps\":%.04f,\"bitrate\":%d}", stats.msRTT, stats.mbpsBandwidth, role->get_bitrate());
-            res.set_content(tmp, "application/json");
+            if (!req.has_param("publisher")) {
+                ret = sls_manager->generate_json_for_all_publishers(clear);
+            } else {
+                ret = sls_manager->generate_json_for_publisher(req.get_param_value("publisher"), clear);
+            }
         } else {
-            res.set_content("not ok", "text/plain");        
+            ret["status"]  = "error";
+            ret["message"] = "sls manager not found";      
         }
+        res.set_content(ret.dump(), "application/json");
     });
     
-    std::thread(std::bind(&httpWorker)).detach();
+    int httpPort = 8181;
+    if (conf_srt->http_port != NULL) {
+        httpPort = conf_srt->http_port;
+    }
+    std::thread(httpWorker, std::ref(httpPort)).detach();
     
 	while(!b_exit)
 	{

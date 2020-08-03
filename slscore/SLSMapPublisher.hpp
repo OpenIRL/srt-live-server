@@ -49,6 +49,7 @@ public:
     sls_conf_base_t *get_ca(std::string key_app);
 
     CSLSRole *       get_publisher(std::string strAppStreamName);
+    std::vector<std::string> get_publisher_names();
 
 
 private:

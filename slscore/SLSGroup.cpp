@@ -85,17 +85,6 @@ void CSLSGroup::reload()
     m_reload = true;
 }
 
-CSLSRole * CSLSGroup::find_publisher()
-{
-    for (std::pair<int, CSLSRole*> element : m_map_role) {
-        CSLSRole *role = element.second;
-        if (strcmp(role->get_role_name(), "publisher") == 0) {
-            return role;        
-        }
-    }
-    return NULL;
-}
-
 void CSLSGroup::check_new_role() {
 
     // first, check rolelist

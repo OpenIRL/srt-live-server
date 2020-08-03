@@ -36,6 +36,9 @@
 #include "SLSMapData.hpp"
 #include "SLSMapRelay.hpp"
 
+#include "json.hpp"
+using json = nlohmann::json;
+
 /**
  * srt conf declare
  */
@@ -47,6 +50,7 @@ int              worker_connections;
 char             stat_post_url[URL_MAX_LEN];
 int              stat_post_interval;
 char             record_hls_path_prefix[URL_MAX_LEN];
+int              http_port;
 SLS_CONF_DYNAMIC_DECLARE_END
 
 
@@ -61,6 +65,7 @@ SLS_SET_CONF(srt, int,    worker_connections,          "", 1, 1024),
 SLS_SET_CONF(srt, string, stat_post_url,               "statistic info post url", 1, URL_MAX_LEN-1),
 SLS_SET_CONF(srt, int,    stat_post_interval,          "interval of statistic info post.", 1, 60),
 SLS_SET_CONF(srt, string, record_hls_path_prefix,      "hls path prefix", 1, URL_MAX_LEN-1),
+SLS_SET_CONF(srt, int,    http_port,                   "rest api port", 1, 65535),
 SLS_CONF_CMD_DYNAMIC_DECLARE_END
 
 
@@ -78,7 +83,9 @@ public :
     int  stop();
     int  reload();
     int  single_thread_handler();
-    CSLSRole *  check_publisher();
+    json generate_json_for_all_publishers(int clear);
+    json generate_json_for_publisher(std::string publisherName, int clear);
+    json create_json_stats_for_publisher(CSLSRole *role, int clear);
     int  check_invalid();
     bool is_single_thread();
 

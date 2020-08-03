@@ -115,6 +115,15 @@ CSLSRole * CSLSMapPublisher::get_publisher(std::string strAppStreamName)
     return publisher;
 }
 
+std::vector<std::string> CSLSMapPublisher::get_publisher_names() {
+    std::vector<std::string> ret;
+    for (auto val : m_map_push_2_pushlisher) {
+        std::string streamName = val.first;
+        ret.push_back(streamName);
+    }
+    return ret;
+}
+
 int CSLSMapPublisher::remove(CSLSRole *role)
 {
     int ret = SLS_ERROR;

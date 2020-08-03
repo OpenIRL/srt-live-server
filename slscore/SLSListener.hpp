@@ -48,6 +48,7 @@ int              backlog;
 int              latency;
 int              idle_streams_timeout;//unit s; -1: unlimited
 char             on_event_url[URL_MAX_LEN];
+char             default_sid[STR_MAX_LEN];
 SLS_CONF_DYNAMIC_DECLARE_END
 
 /**
@@ -61,6 +62,7 @@ SLS_SET_CONF(server, int,    backlog,              "how many sockets may be allo
 SLS_SET_CONF(server, int,    latency,              "latency.", 1, 300),
 SLS_SET_CONF(server, int,    idle_streams_timeout, "players idle timeout when no publisher" , -1, 86400),
 SLS_SET_CONF(server, string, on_event_url,         "on connect/close http url", 1,    URL_MAX_LEN-1),
+SLS_SET_CONF(server, string, default_sid,          "default sid to use when no streamid is given", 1, STR_MAX_LEN-1),
 SLS_CONF_CMD_DYNAMIC_DECLARE_END
 
 
@@ -100,6 +102,7 @@ private:
 
     int                 m_idle_streams_timeout_role;
     std::string 		m_stat_info;
+    char                m_default_sid[1024];
     char                m_http_url_role[URL_MAX_LEN];
     char                m_record_hls_path_prefix[URL_MAX_LEN];
 

@@ -31,6 +31,9 @@
 #include "SLSLog.hpp"
 #include "SLSListener.hpp"
 #include "SLSPublisher.hpp"
+#include "json.hpp"
+
+using json = nlohmann::json;
 
 /**
  * srt conf
@@ -157,14 +160,54 @@ int CSLSManager::start()
 
 }
 
-CSLSRole * CSLSManager::check_publisher() {
-    for (CSLSGroup *group: m_workers) {
-        CSLSRole *role = group->find_publisher();
-        if (role != NULL) {
-            return role;
+json CSLSManager::generate_json_for_all_publishers(int clear) {
+    json ret;
+    ret["status"] = "ok";
+    ret["publishers"] = json::object();
+    for (int i = 0; i < m_server_count; i ++) {
+        CSLSMapPublisher *publisher_map = &m_map_publisher[i];
+        std::vector<std::string> publisherNames = publisher_map->get_publisher_names();
+        for(std::string name : publisherNames) {
+            CSLSRole *role = publisher_map->get_publisher(name);
+            ret["publishers"][name] = create_json_stats_for_publisher(role, clear);
         }
     }
-    return NULL;
+    return ret;
+}
+
+json CSLSManager::generate_json_for_publisher(std::string publisherName, int clear) {
+    json ret;
+    ret["status"] = "error";
+    ret["message"] = "publisher not found";
+    for (int i = 0; i < m_server_count; i ++) {
+        CSLSMapPublisher *publisher_map = &m_map_publisher[i];
+        CSLSRole *role = publisher_map->get_publisher(publisherName);
+        if (role != NULL) {
+            ret = create_json_stats_for_publisher(role, clear);
+            ret["status"] = "ok";
+            break;
+        }
+    }
+    return ret;
+}
+
+
+json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
+    json ret = json::object();
+    SRT_TRACEBSTATS stats;
+    role->get_statistics(&stats, clear);
+    // Interval
+    ret["pktRcvLoss"]       = stats.pktRcvLoss;
+    ret["pktRcvDrop"]       = stats.pktRcvDrop;
+    ret["bytesRcvLoss"]     = stats.byteRcvLoss;
+    ret["bytesRcvDrop"]     = stats.byteRcvDrop;
+    ret["mbpsRecvRate"]     = stats.mbpsRecvRate;
+    // Instant
+    ret["rtt"]              = stats.msRTT;
+    ret["msRcvBuf"]         = stats.msRcvBuf;
+    ret["mbpsBandwidth"]    = stats.mbpsBandwidth;
+    ret["bitrate"]          = role->get_bitrate();
+    return ret;
 }
 
 int CSLSManager::single_thread_handler()

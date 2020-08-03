@@ -488,9 +488,9 @@ int CSLSRole::handler_read_data(int64_t *last_read_time)
     return ret;
 }
 
-int CSLSRole::get_statistics(SRT_TRACEBSTATS *currentStats) {
+int CSLSRole::get_statistics(SRT_TRACEBSTATS *currentStats, int clear) {
     if (m_srt) {
-        m_srt->libsrt_get_statistics(currentStats);
+        m_srt->libsrt_get_statistics(currentStats, clear);
         return SLS_OK;
     }
     return SLS_ERROR;

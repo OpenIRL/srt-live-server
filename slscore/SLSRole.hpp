@@ -95,7 +95,7 @@ public :
     void        set_http_url(const char *http_url);
     int         on_connect();
     int         on_close();
-    int         get_statistics(SRT_TRACEBSTATS *currentStats);
+    int         get_statistics(SRT_TRACEBSTATS *currentStats, int clear);
     int         get_bitrate();
     int         check_http_client();
     int         check_http_passed();
