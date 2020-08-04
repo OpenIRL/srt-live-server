@@ -94,6 +94,7 @@ int main(int argc, char* argv[])
     CHttpClient             *http_stat_client = new CHttpClient;
 
     int ret = SLS_OK;
+    int httpPort = 8181;
     int l = sizeof(sockaddr_in);
     int64_t tm_begin_ms = 0;
 
@@ -188,7 +189,6 @@ int main(int argc, char* argv[])
         res.set_content(ret.dump(), "application/json");
     });
     
-    int httpPort = 8181;
     if (conf_srt->http_port != NULL) {
         httpPort = conf_srt->http_port;
     }
