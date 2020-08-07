@@ -39,6 +39,7 @@ CSLSRole::CSLSRole()
 {
     m_srt                    = NULL;
     m_is_write               = true;//listener: 0, publisher: 0, player: 1
+    m_stat_start_time        = sls_gettime_ms();
     m_invalid_begin_tm       = sls_gettime_ms();//
     m_stat_bitrate_last_tm   = m_invalid_begin_tm;//
     m_stat_bitrate_interval  = 1000;//ms
@@ -498,6 +499,11 @@ int CSLSRole::get_statistics(SRT_TRACEBSTATS *currentStats, int clear) {
 
 int CSLSRole::get_bitrate() {
     return m_kbitrate;
+}
+
+int CSLSRole::get_uptime() {
+    int difference = sls_gettime_ms() - m_stat_start_time;
+    return difference/1000;
 }
 
 int CSLSRole::handler_write_data()
