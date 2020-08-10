@@ -233,6 +233,14 @@ int CSLSSrt::libsrt_listen(int backlog)
     return SLS_OK;
 }
 
+int CSLSSrt::libsrt_set_listen_callback(srt_listen_callback_fn * listen_callback_fn) {
+    int ret = srt_listen_callback(m_sc.fd, listen_callback_fn, NULL);
+    if (ret) {
+        return SLS_ERROR;
+    }
+    return SLS_OK;
+}
+
 int CSLSSrt::libsrt_accept()
 {
     struct sockaddr_in6 scl;
@@ -312,34 +320,34 @@ int CSLSSrt::libsrt_socket_nonblock(int enable)
     return srt_setsockopt(m_sc.fd, 0, SRTO_RCVSYN, &enable, sizeof(enable));
 }
 
-int CSLSSrt::libsrt_split_sid(char *sid, char *host, char *app, char *name)
+std::map<std::string, std::string> CSLSSrt::libsrt_parse_sid(char *sid)
 {
-    int i = 0;
-    char *p, *p1 ;
-    p1 = sid;
-
-    //host
-    p = strchr(p1, '/');
-    if (p) {
-        strncpy(host, (const char *)p1, p - p1);
-        p1 = p+1;
+    static const char stdhdr [] = "#!::";
+    uint32_t* pattern = (uint32_t*)stdhdr;
+    std::map<std::string, std::string> ret;
+    if (strlen(sid) > 4 && *(uint32_t*)sid == *pattern) {
+        std::vector<string> items;
+        sls_split_string(sid+4, ",", items);
+        for (auto& i: items)
+        {
+            std::vector<string> kv;
+            sls_split_string(i, "=", kv);
+            if (kv.size() == 2)
+            {
+                
+                ret[kv.at(0)] = kv.at(1);
+            }
+        }
     } else {
-        sls_log(SLS_LOG_ERROR, "[%p]CSLSSrt::libsrt_split_sid, sid='%s' is not as host/app/name.", this, sid);
-        return -1;
+        std::vector<string> items;
+        sls_split_string(sid, "/", items);
+        if (items.size() >= 3) {
+            ret["h"] = items.at(0);
+            ret["sls_app"] = items.at(1);
+            ret["r"] = items.at(2);
+        }
     }
-    //app
-    p = strchr(p1, '/');
-    if (p) {
-        strncpy(app, (const char *)p1, p - p1);
-        p1 = p+1;
-    } else {
-        sls_log(SLS_LOG_ERROR, "[%p]CSLSSrt::libsrt_split_sid, sid='%s' is not as host/app/name.", this, sid);
-        return -1;
-    }
-
-    strcpy(name, (const char *)p1);
-
-    return 0;
+    return ret;
 }
 
 int CSLSSrt::libsrt_read(char *buf, int size)

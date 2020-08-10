@@ -334,6 +334,7 @@ int CSLSListener::handler()
 	int fd_client = 0;
 	CSLSSrt *srt = NULL;
 	char sid[1024] = {0};
+    std::map<std::string, std::string> sid_kv;
 	int  sid_size = sizeof(sid);
 	char host_name[URL_MAX_LEN] = {0};
 	char app_name[URL_MAX_LEN] = {0};
@@ -382,7 +383,27 @@ int CSLSListener::handler()
         }
     }
     
-    if (0 != srt->libsrt_split_sid(sid, host_name, app_name, stream_name)) {
+    sid_kv = srt->libsrt_parse_sid(sid);
+    bool sidValid = true;
+    // Host (defined in spec)
+    if (sid_kv.count("h")) {
+        strcpy(host_name, sid_kv.at("h").c_str());
+    } else {
+        sidValid = false;
+    }
+    // Application Name (venor supplied)
+    if (sid_kv.count("sls_app")) {
+        strcpy(app_name, sid_kv.at("sls_app").c_str());
+    } else {
+        sidValid = false;
+    }
+    // Resource (defined in spec)
+    if (sid_kv.count("r")) {
+        strcpy(stream_name, sid_kv.at("r").c_str());
+    } else {
+        sidValid = false;
+    }
+    if (!sidValid) {
         sls_log(SLS_LOG_ERROR, "[%p]CSLSListener::handler, [%s:%d], parse sid='%s' failed.", this, peer_name, peer_port, sid);
     	srt->libsrt_close();
     	delete srt;
