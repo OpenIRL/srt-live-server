@@ -77,6 +77,16 @@ int CSLSMapData::remove(char *key)
 
     CSLSLock lock(&m_rwclock, true);
 
+    std::map<std::string, ts_info *>::iterator item_ti;
+    item_ti = m_map_ts_info.find(strKey);
+    if (item_ti != m_map_ts_info.end()) {
+        ts_info *ti = item_ti->second;
+        if (ti) {
+            delete ti;
+        }
+        m_map_ts_info.erase(item_ti);
+    }
+
     std::map<std::string, CSLSRecycleArray *>::iterator item;
     item = m_map_array.find(strKey);
     if (item != m_map_array.end()) {
@@ -229,6 +239,15 @@ void CSLSMapData::clear()
         it ++;
     }
     m_map_array.clear();
+    std::map<std::string, ts_info *>::iterator item_ti;
+    for(item_ti=m_map_ts_info.begin(); item_ti!=m_map_ts_info.end(); ) {
+        ts_info *ti = item_ti->second;
+        if (ti) {
+            delete ti;
+        }
+        item_ti ++;
+    }
+    m_map_ts_info.clear();
 }
 
 int CSLSMapData::check_ts_info(char *data, int len, ts_info *ti)
