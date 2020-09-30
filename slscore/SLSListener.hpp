@@ -59,7 +59,7 @@ SLS_SET_CONF(server, string, domain_player,        "play domain", 1,    URL_MAX_
 SLS_SET_CONF(server, string, domain_publisher,     "", 1,    URL_MAX_LEN-1),
 SLS_SET_CONF(server, int,    listen,               "listen port", 1, 65535),
 SLS_SET_CONF(server, int,    backlog,              "how many sockets may be allowed to wait until they are accepted", 1,    1024),
-SLS_SET_CONF(server, int,    latency,              "latency.", 1, 300),
+SLS_SET_CONF(server, int,    latency,              "latency.", 1, 5000),
 SLS_SET_CONF(server, int,    idle_streams_timeout, "players idle timeout when no publisher" , -1, 86400),
 SLS_SET_CONF(server, string, on_event_url,         "on connect/close http url", 1,    URL_MAX_LEN-1),
 SLS_SET_CONF(server, string, default_sid,          "default sid to use when no streamid is given", 1, STR_MAX_LEN-1),
