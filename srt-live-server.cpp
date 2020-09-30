@@ -95,6 +95,7 @@ int main(int argc, char* argv[])
 
     int ret = SLS_OK;
     int httpPort = 8181;
+    char cors_header[URL_MAX_LEN] = "*";
     int l = sizeof(sockaddr_in);
     int64_t tm_begin_ms = 0;
 
@@ -169,7 +170,11 @@ int main(int argc, char* argv[])
     conf_srt = (sls_conf_srt_t *)sls_conf_get_root_conf();
     if (strlen(conf_srt->stat_post_url) > 0)
         http_stat_client->open(conf_srt->stat_post_url, stat_method, conf_srt->stat_post_interval);
-
+        
+    if (strlen(conf_srt->cors_header) > 0) {
+        strcpy(cors_header, conf_srt->cors_header);
+    }
+    
     svr.Get("/stats", [&](const Request& req, Response& res) {
         json ret;
         if (sls_manager != NULL) {
@@ -186,6 +191,7 @@ int main(int argc, char* argv[])
             ret["status"]  = "error";
             ret["message"] = "sls manager not found";      
         }
+        res.set_header("Access-Control-Allow-Origin", cors_header);
         res.set_content(ret.dump(), "application/json");
     });
     

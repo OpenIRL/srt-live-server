@@ -51,6 +51,7 @@ char             stat_post_url[URL_MAX_LEN];
 int              stat_post_interval;
 char             record_hls_path_prefix[URL_MAX_LEN];
 int              http_port;
+char             cors_header[URL_MAX_LEN];
 SLS_CONF_DYNAMIC_DECLARE_END
 
 
@@ -66,6 +67,7 @@ SLS_SET_CONF(srt, string, stat_post_url,               "statistic info post url"
 SLS_SET_CONF(srt, int,    stat_post_interval,          "interval of statistic info post.", 1, 60),
 SLS_SET_CONF(srt, string, record_hls_path_prefix,      "hls path prefix", 1, URL_MAX_LEN-1),
 SLS_SET_CONF(srt, int,    http_port,                   "rest api port", 1, 65535),
+SLS_SET_CONF(srt, string, cors_header,                 "cors header", 1, URL_MAX_LEN-1)
 SLS_CONF_CMD_DYNAMIC_DECLARE_END
 
 
