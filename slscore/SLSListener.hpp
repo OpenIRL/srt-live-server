@@ -57,7 +57,7 @@ SLS_CONF_DYNAMIC_DECLARE_END
 SLS_CONF_CMD_DYNAMIC_DECLARE_BEGIN(server)
 SLS_SET_CONF(server, string, domain_player,        "play domain", 1,    URL_MAX_LEN-1),
 SLS_SET_CONF(server, string, domain_publisher,     "", 1,    URL_MAX_LEN-1),
-SLS_SET_CONF(server, int,    listen,               "listen port", 1024, 10000),
+SLS_SET_CONF(server, int,    listen,               "listen port", 1, 65535),
 SLS_SET_CONF(server, int,    backlog,              "how many sockets may be allowed to wait until they are accepted", 1,    1024),
 SLS_SET_CONF(server, int,    latency,              "latency.", 1, 300),
 SLS_SET_CONF(server, int,    idle_streams_timeout, "players idle timeout when no publisher" , -1, 86400),
