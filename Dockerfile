@@ -7,7 +7,7 @@ WORKDIR /tmp
 COPY . /tmp/srt-live-server/
 RUN git clone https://github.com/Haivision/srt.git
 WORKDIR /tmp/srt
-RUN git checkout v1.4.2 && ./configure && make -j8 && make install
+RUN git checkout v1.4.3 && ./configure && make -j8 && make install
 WORKDIR /tmp/srt-live-server
 RUN make -j8
 
