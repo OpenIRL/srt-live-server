@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -69,7 +68,7 @@ static void usage()
     spdlog::info("{: ^{}}", "irl-srt-server", BANNER_WIDTH);
     spdlog::info("{: ^{}}", VERSION_STRING, BANNER_WIDTH);
     spdlog::info("{: ^{}}", "Based on srt-live-server", BANNER_WIDTH);
-    spdlog::info("{: ^{}}", "Modified by IRLServer (https://github.com/irlserver/irl-srt-server)", BANNER_WIDTH);
+    spdlog::info("{: ^{}}", "Modified by OpenIRL", BANNER_WIDTH);
     spdlog::info("{:-<{}}", "", BANNER_WIDTH);
 }
 
@@ -204,27 +203,34 @@ int main(int argc, char *argv[])
         strcpy(cors_header, conf_srt->cors_header);
     }
 
-    svr.Get("/stats", [&](const Request& req, Response& res) {
+    // Update stats endpoint to use outgest URL path parameter
+    svr.Get(R"(/stats/(.+))", [&](const Request& req, Response& res) {
         json ret;
 
         if (!sls_manager) {
-            ret["status"]  = "error";
+            ret["status"] = "error";
             ret["message"] = "sls manager not found";
+            res.status = 500;
             res.set_header("Access-Control-Allow-Origin", cors_header);
             res.set_content(ret.dump(), "application/json");
             return;
         }
 
-        if (!req.has_param("publisher")) {
-            ret["status"]  = "error";
-            ret["message"] = "Missing required parameter: publisher";
+        // Get outgest from URL path
+        std::string outgest = req.matches[1];
+        
+        // Verify if outgest exists
+        if (!sls_manager->get_endpoint_manager()->is_valid_outgest(outgest)) {
+            ret["status"] = "error";
+            ret["message"] = "Invalid outgest endpoint";
+            res.status = 404;
             res.set_header("Access-Control-Allow-Origin", cors_header);
             res.set_content(ret.dump(), "application/json");
             return;
         }
 
         int clear = req.has_param("reset") ? 1 : 0;
-        ret = sls_manager->generate_json_for_publisher(req.get_param_value("publisher"), clear);
+        ret = sls_manager->generate_json_for_endpoint(outgest, clear);
 
         res.set_header("Access-Control-Allow-Origin", cors_header);
         res.set_content(ret.dump(), "application/json");
@@ -234,6 +240,167 @@ int main(int argc, char *argv[])
         httpPort = conf_srt->http_port;
     }
     std::thread(httpWorker, std::ref(httpPort)).detach();
+
+    // Add authentication endpoint
+    svr.Post("/auth", [&](const Request& req, Response& res) {
+        json ret;
+        try {
+            json body = json::parse(req.body);
+            
+            if (!body.contains("username") || !body.contains("password")) {
+                ret["status"] = "error";
+                ret["message"] = "Missing username or password";
+                res.status = 400;
+            } else {
+                std::string token = sls_manager->get_endpoint_manager()->authenticate(
+                    body["username"].get<std::string>(),
+                    body["password"].get<std::string>()
+                );
+                
+                if (!token.empty()) {
+                    ret["status"] = "success";
+                    ret["token"] = token;
+                } else {
+                    ret["status"] = "error";
+                    ret["message"] = "Invalid credentials";
+                    res.status = 401;
+                }
+            }
+        } catch (json::exception& e) {
+            ret["status"] = "error";
+            ret["message"] = "Invalid JSON format";
+            res.status = 400;
+        }
+        
+        res.set_header("Access-Control-Allow-Origin", cors_header);
+        res.set_content(ret.dump(), "application/json");
+    });
+
+    // Update existing endpoints to require authentication
+    svr.Post("/endpoints", [&](const Request& req, Response& res) {
+        json ret;
+        
+        // Check Authorization header
+        if (!req.has_header("Authorization")) {
+            ret["status"] = "error";
+            ret["message"] = "Missing authorization";
+            res.status = 401;
+            res.set_header("Access-Control-Allow-Origin", cors_header);
+            res.set_content(ret.dump(), "application/json");
+            return;
+        }
+        
+        std::string auth_header = req.get_header_value("Authorization");
+        if (!sls_manager->get_endpoint_manager()->verify_token(auth_header)) {
+            ret["status"] = "error";
+            ret["message"] = "Invalid or expired token";
+            res.status = 401;
+            res.set_header("Access-Control-Allow-Origin", cors_header);
+            res.set_content(ret.dump(), "application/json");
+            return;
+        }
+        
+        try {
+            json body = json::parse(req.body);
+            SLSEndpoint endpoint;
+            endpoint.ingest = body["ingest"];
+            endpoint.outgest = body["outgest"];
+            
+            if (sls_manager->get_endpoint_manager()->add_endpoint(endpoint) == SLS_OK) {
+                ret["status"] = "success";
+                ret["message"] = "Endpoint added successfully";
+            } else {
+                ret["status"] = "error";
+                ret["message"] = "Failed to add endpoint";
+                res.status = 500;
+            }
+        } catch (json::exception& e) {
+            ret["status"] = "error";
+            ret["message"] = "Invalid JSON format";
+            res.status = 400;
+        }
+        
+        res.set_header("Access-Control-Allow-Origin", cors_header);
+        res.set_content(ret.dump(), "application/json");
+    });
+
+    // Update DELETE endpoint to require authentication
+    svr.Delete("/endpoints/:ingest", [&](const Request& req, Response& res) {
+        json ret;
+        
+        // Check Authorization header
+        if (!req.has_header("Authorization")) {
+            ret["status"] = "error";
+            ret["message"] = "Missing authorization";
+            res.status = 401;
+            res.set_header("Access-Control-Allow-Origin", cors_header);
+            res.set_content(ret.dump(), "application/json");
+            return;
+        }
+        
+        std::string auth_header = req.get_header_value("Authorization");
+        if (!sls_manager->get_endpoint_manager()->verify_token(auth_header)) {
+            ret["status"] = "error";
+            ret["message"] = "Invalid or expired token";
+            res.status = 401;
+            res.set_header("Access-Control-Allow-Origin", cors_header);
+            res.set_content(ret.dump(), "application/json");
+            return;
+        }
+        
+        std::string ingest = req.path_params.at("ingest");
+        if (sls_manager->get_endpoint_manager()->remove_endpoint(ingest) == SLS_OK) {
+            ret["status"] = "success";
+            ret["message"] = "Endpoint removed successfully";
+        } else {
+            ret["status"] = "error";
+            ret["message"] = "Failed to remove endpoint";
+            res.status = 500;
+        }
+        
+        res.set_header("Access-Control-Allow-Origin", cors_header);
+        res.set_content(ret.dump(), "application/json");
+    });
+
+    // Update GET endpoint to require authentication
+    svr.Get("/endpoints", [&](const Request& req, Response& res) {
+        json ret;
+        
+        // Check Authorization header
+        if (!req.has_header("Authorization")) {
+            ret["status"] = "error";
+            ret["message"] = "Missing authorization";
+            res.status = 401;
+            res.set_header("Access-Control-Allow-Origin", cors_header);
+            res.set_content(ret.dump(), "application/json");
+            return;
+        }
+        
+        std::string auth_header = req.get_header_value("Authorization");
+        if (!sls_manager->get_endpoint_manager()->verify_token(auth_header)) {
+            ret["status"] = "error";
+            ret["message"] = "Invalid or expired token";
+            res.status = 401;
+            res.set_header("Access-Control-Allow-Origin", cors_header);
+            res.set_content(ret.dump(), "application/json");
+            return;
+        }
+
+        // Get all endpoints if authentication was successful
+        ret["status"] = "success";
+        ret["endpoints"] = json::array();
+        
+        const auto& endpoints = sls_manager->get_endpoint_manager()->get_all_endpoints();
+        for (const auto& endpoint : endpoints) {
+            ret["endpoints"].push_back({
+                {"ingest", endpoint.ingest},
+                {"outgest", endpoint.outgest}
+            });
+        }
+        
+        res.set_header("Access-Control-Allow-Origin", cors_header);
+        res.set_content(ret.dump(), "application/json");
+    });
 
     while (!b_exit)
     {

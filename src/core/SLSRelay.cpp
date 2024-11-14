@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -110,19 +109,29 @@ int CSLSRelay::parse_url(char *url, char *host_name, size_t host_name_size, int 
         // Set port
         port = stoi(parsed_url.port());
 
+        // Get endpoint directly from path
+        std::string path = parsed_url.path();
+        if (!path.empty() && path[0] == '/') {
+            path = path.substr(1);  // Remove leading slash
+        }
+        
+        // Check if endpoint is valid
+        if (!CSLSManager::get_instance()->get_endpoint_manager()->is_valid_ingest(path)) {
+            spdlog::error("[{}] CSLSRelay::parse_url invalid endpoint '{}'", fmt::ptr(this), path);
+            return SLS_ERROR;
+        }
+
+        // Set streamid to the endpoint
+        strlcpy(streamid, path.c_str(), streamid_size);
+        streamid_found = true;
+
+        // Parse other query parameters
         for (Url::KeyVal query_param : parsed_url.query())
         {
-            if (query_param.key().compare("streamid") == 0)
-            {
-                // Set streamid
-                streamid_found = true;
-                strlcpy(streamid, query_param.val().c_str(), streamid_size);
-            }
-            else if (query_param.key().compare("latency") == 0)
+            if (query_param.key().compare("latency") == 0)
             {
                 try
                 {
-                    // Set latency
                     latency = stoi(query_param.val());
                     latency_found = true;
                 }
@@ -136,30 +145,23 @@ int CSLSRelay::parse_url(char *url, char *host_name, size_t host_name_size, int 
     }
     catch (Url::parse_error const &error)
     {
-        spdlog::error("[{}] CSLSRelay::parse_url error [{}]",
-                      fmt::ptr(this), error.what());
-        spdlog::error("[{}] CSLSRelay::parse_url URL should be in format 'srt://hostname:port?streamid=your_stream_id'",
-                      fmt::ptr(this));
+        spdlog::error("[{}] CSLSRelay::parse_url error [{}]", fmt::ptr(this), error.what());
+        spdlog::error("[{}] CSLSRelay::parse_url URL should be in format 'srt://hostname:port/endpoint'", fmt::ptr(this));
         return SLS_ERROR;
     }
 
     if (!streamid_found)
     {
-        spdlog::error("[{}] CSLSRelay::parse_url query parameter 'streamid' not found in URL '{}'",
-                      fmt::ptr(this), url);
-        spdlog::error("[{}] CSLSRelay::parse_url URL should be in format 'srt://hostname:port?streamid=your_stream_id'",
-                      fmt::ptr(this));
+        spdlog::error("[{}] CSLSRelay::parse_url no endpoint found in URL '{}'", fmt::ptr(this), url);
+        spdlog::error("[{}] CSLSRelay::parse_url URL should be in format 'srt://hostname:port/endpoint'", fmt::ptr(this));
         return SLS_ERROR;
     }
 
     if (!latency_found)
     {
-        spdlog::warn("[{}] CSLSRelay::parse_url query parameter 'latency' not found in URL '{}', use default latency {}",
+        spdlog::warn("[{}] CSLSRelay::parse_url query parameter 'latency' not found in URL '{}', use default latency {}", 
                      fmt::ptr(this), url, DEFAULT_LATENCY);
     }
-
-    spdlog::warn("{}", url);
-    spdlog::warn("{}:{:d} | {}", host_name, port, streamid);
 
     return SLS_OK;
 }

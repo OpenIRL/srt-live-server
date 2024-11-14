@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -127,6 +126,8 @@ public:
 
     static int libsrt_neterrno();
     static void libsrt_print_error_info();
+
+    SRTSOCKET get_socket() { return m_sc.fd; }
 
 protected:
     SRTContext m_sc;

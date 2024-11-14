@@ -66,6 +66,8 @@ set(sls_core_files
 	TSFileTimeReader.hpp
 	util.cpp
 	util.hpp
+	SLSEndpointManager.cpp
+	SLSEndpointManager.hpp
 )
 
 add_library(sls_core STATIC ${sls_core_files})
@@ -74,4 +76,4 @@ target_link_libraries(sls_core
 	stdc++fs
 	nlohmann_json::nlohmann_json
 )
-target_include_directories(sls_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(sls_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/lib/jwt-cpp/include)

@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -48,6 +47,26 @@ public:
 
     CSLSRole *get_publisher(std::string strAppStreamName);
     std::vector<std::string> get_publisher_names();
+
+    CSLSRole* get_role_by_endpoint(const std::string& outgest) {
+        CSLSLock lock(&m_rwclock, false);
+        
+        for (auto& item : m_map_publisher) {
+            CSLSRole* role = item.second;
+            if (!role || !role->get_srt()) continue;
+
+            SRTSOCKET socket_id = role->get_srt()->get_socket();
+            char streamid[512] = {0};
+            int streamid_size = 512;
+            
+            if (srt_getsockflag(socket_id, SRTO_STREAMID, streamid, &streamid_size) == SRT_SUCCESS) {
+                if (strcmp(streamid, outgest.c_str()) == 0) {
+                    return role;
+                }
+            }
+        }
+        return nullptr;
+    }
 
 private:
     std::map<std::string, std::string> m_map_live_2_uplive;       // 'hostname/live':'hostname/uplive'

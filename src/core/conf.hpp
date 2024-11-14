@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -28,6 +27,8 @@
 #include <stdint.h>
 #include <vector>
 #include <string>
+
+#define URL_MAX_LEN 1024
 
 using namespace std;
 
@@ -244,3 +245,63 @@ int sls_parse_argv(int argc, char *argv[], sls_opt_t *sls_opt, sls_conf_cmd_t *c
 sls_conf_cmd_t *sls_conf_find(const char *n, sls_conf_cmd_t *cmd, int size);
 sls_conf_base_t *sls_conf_get_root_conf();
 vector<string> sls_conf_string_split(const char *str, const char *delim);
+
+// Neue vereinfachte Konfigurationsstruktur
+struct sls_conf_srt_t : public sls_conf_base_t {
+    // Basic settings
+    char log_file[URL_MAX_LEN];
+    char log_level[URL_MAX_LEN];
+    char pidfile[URL_MAX_LEN];
+    int worker_threads;
+    int worker_connections;
+    char stat_post_url[URL_MAX_LEN];
+    int stat_post_interval;
+    char record_hls_path_prefix[URL_MAX_LEN];
+    int http_port;
+    char cors_header[URL_MAX_LEN];
+    
+    // Endpoint configuration
+    char endpoint_config[URL_MAX_LEN];
+    
+    // Auth configuration
+    struct {
+        char username[URL_MAX_LEN];
+        char password[URL_MAX_LEN];
+        char token_secret[URL_MAX_LEN];
+        int token_expire;
+    } endpoint_auth;
+    
+    // Server configuration
+    int listen_port;
+    int latency;
+    int backlog;
+    int idle_streams_timeout;
+    
+    // Access control
+    char allow_publish[URL_MAX_LEN];
+    char allow_play[URL_MAX_LEN];
+    char deny_publish[URL_MAX_LEN];
+    char deny_play[URL_MAX_LEN];
+    
+    // Recording
+    bool record_hls;
+    int record_hls_segment_duration;
+    
+    // Event notification
+    char on_event_url[URL_MAX_LEN];
+    
+    // Relay configuration
+    struct {
+        char mode[32];
+        int reconnect_interval;
+        int idle_streams_timeout;
+        char upstreams[URL_MAX_LEN];
+    } relay_pull;
+    
+    struct {
+        char mode[32];
+        int reconnect_interval;
+        int idle_streams_timeout;
+        char upstreams[URL_MAX_LEN];
+    } relay_push;
+};

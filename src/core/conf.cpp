@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -596,4 +595,55 @@ int sls_parse_argv(int argc, char *argv[], sls_opt_t *sls_opt, sls_conf_cmd_t *c
         }
     }
     return ret;
+}
+
+static int parse_srt_conf(char *line, sls_conf_srt_t *conf) {
+    char key[128] = {0};
+    char value[1024] = {0};
+    
+    if (sscanf(line, "%s %[^\n]", key, value) != 2) {
+        return SLS_ERROR;
+    }
+    
+    // Bestehende Konfigurationsoptionen
+    if (strcmp(key, "log_file") == 0) {
+        strlcpy(conf->log_file, value, sizeof(conf->log_file));
+    } else if (strcmp(key, "log_level") == 0) {
+        strlcpy(conf->log_level, value, sizeof(conf->log_level));
+    } else if (strcmp(key, "pidfile") == 0) {
+        strlcpy(conf->pidfile, value, sizeof(conf->pidfile));
+    } else if (strcmp(key, "worker_threads") == 0) {
+        conf->worker_threads = atoi(value);
+    } else if (strcmp(key, "worker_connections") == 0) {
+        conf->worker_connections = atoi(value);
+    } else if (strcmp(key, "stat_post_url") == 0) {
+        strlcpy(conf->stat_post_url, value, sizeof(conf->stat_post_url));
+    } else if (strcmp(key, "stat_post_interval") == 0) {
+        conf->stat_post_interval = atoi(value);
+    } else if (strcmp(key, "record_hls_path_prefix") == 0) {
+        strlcpy(conf->record_hls_path_prefix, value, sizeof(conf->record_hls_path_prefix));
+    } else if (strcmp(key, "http_port") == 0) {
+        conf->http_port = atoi(value);
+    } else if (strcmp(key, "cors_header") == 0) {
+        strlcpy(conf->cors_header, value, sizeof(conf->cors_header));
+    }
+    // Neue Endpoint-bezogene Konfigurationsoptionen
+    else if (strcmp(key, "endpoint_config") == 0) {
+        strlcpy(conf->endpoint_config, value, sizeof(conf->endpoint_config));
+    }
+    // Auth configuration
+    else if (strncmp(key, "endpoint_auth.", 13) == 0) {
+        char *auth_key = key + 13;
+        if (strcmp(auth_key, "username") == 0) {
+            strlcpy(conf->endpoint_auth.username, value, sizeof(conf->endpoint_auth.username));
+        } else if (strcmp(auth_key, "password") == 0) {
+            strlcpy(conf->endpoint_auth.password, value, sizeof(conf->endpoint_auth.password));
+        } else if (strcmp(auth_key, "token_secret") == 0) {
+            strlcpy(conf->endpoint_auth.token_secret, value, sizeof(conf->endpoint_auth.token_secret));
+        } else if (strcmp(auth_key, "token_expire") == 0) {
+            conf->endpoint_auth.token_expire = atoi(value);
+        }
+    }
+    
+    return SLS_OK;
 }

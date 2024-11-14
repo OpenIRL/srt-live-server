@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -34,6 +33,7 @@
 #include "conf.hpp"
 #include "SLSMapData.hpp"
 #include "SLSMapRelay.hpp"
+#include "SLSEndpointManager.hpp"
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
@@ -90,6 +90,10 @@ public:
     std::string get_stat_info();
     static int stat_client_callback(void *p, HTTP_CALLBACK_TYPE type, void *v, void *context);
 
+    CSLSEndpointManager* get_endpoint_manager() { return m_endpoint_manager; }
+
+    json generate_json_for_endpoint(const std::string& endpoint, int clear);
+
 private:
     vector<CSLSListener *> m_servers;
     int m_server_count;
@@ -103,4 +107,9 @@ private:
 
     CSLSRoleList *m_list_role;
     CSLSGroup *m_single_group;
+
+    CSLSEndpointManager* m_endpoint_manager;
+    CSLSListener* m_listener;
+
+    int init_from_config(sls_conf_srt_t* conf);
 };

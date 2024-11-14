@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -51,6 +50,8 @@ CSLSManager::CSLSManager()
     m_server_count = 1;
     m_list_role = NULL;
     m_single_group = NULL;
+    m_endpoint_manager = NULL;
+    m_listener = NULL;
 
     m_map_data = NULL;
     m_map_publisher = NULL;
@@ -166,6 +167,12 @@ int CSLSManager::start()
         }
     }
     spdlog::info("[{}] CSLSManager::start, init worker, count={:d}.", fmt::ptr(this), m_worker_threads);
+
+    // Initialize endpoint manager
+    if (init_from_config(conf_srt) != SLS_OK) {
+        spdlog::error("[{}] CSLSManager::start, init_from_config failed.", fmt::ptr(this));
+        return SLS_ERROR;
+    }
 
     return ret;
 }
@@ -294,6 +301,17 @@ int CSLSManager::stop()
         delete m_list_role;
         m_list_role = NULL;
     }
+
+    if (m_endpoint_manager) {
+        delete m_endpoint_manager;
+        m_endpoint_manager = NULL;
+    }
+
+    if (m_listener) {
+        delete m_listener;
+        m_listener = NULL;
+    }
+
     return ret;
 }
 
@@ -401,4 +419,74 @@ int CSLSManager::stat_client_callback(void *p, HTTP_CALLBACK_TYPE type, void *v,
     {
     }
     return SLS_OK;
+}
+
+int CSLSManager::init_from_config(sls_conf_srt_t* conf) {
+    if (!conf) {
+        return SLS_ERROR;
+    }
+
+    // Initialize endpoint manager
+    m_endpoint_manager = new CSLSEndpointManager();
+    if (strlen(conf->endpoint_config) > 0) {
+        m_endpoint_manager->set_config_file(conf->endpoint_config);
+    }
+    
+    // Set auth configuration
+    SLSEndpointAuth auth;
+    auth.username = conf->endpoint_auth.username;
+    auth.password = conf->endpoint_auth.password;
+    auth.token_secret = conf->endpoint_auth.token_secret;
+    auth.token_expire = conf->endpoint_auth.token_expire;
+    m_endpoint_manager->set_auth_config(auth);
+    
+    // Load existing endpoints
+    m_endpoint_manager->load_endpoints();
+    
+    // Generate default endpoint if none exist
+    if (m_endpoint_manager->get_all_endpoints().empty()) {
+        auto default_endpoint = m_endpoint_manager->generate_endpoint_pair();
+        m_endpoint_manager->add_endpoint(default_endpoint);
+        m_endpoint_manager->save_endpoints();
+    }
+    
+    return SLS_OK;
+}
+
+json CSLSManager::generate_json_for_endpoint(const std::string& outgest, int clear) {
+    json ret;
+    ret["status"] = "ok";
+
+    // Suche nur nach dem Outgest-Endpoint
+    for (int i = 0; i < m_server_count; i++) {
+        CSLSMapPublisher *publisher_map = &m_map_publisher[i];
+        CSLSRole *role = publisher_map->get_role_by_endpoint(outgest);
+
+        if (role == NULL) continue;
+
+        ret["status"] = "ok";
+        
+        // Hole die SRT-spezifischen Statistiken
+        SRT_TRACEBSTATS stats;
+        role->get_statistics(&stats, clear);
+        
+        // Behalte die ursprüngliche Struktur bei
+        ret["pktRcvLoss"] = stats.pktRcvLoss;
+        ret["pktRcvDrop"] = stats.pktRcvDrop;
+        ret["bytesRcvLoss"] = stats.byteRcvLoss;
+        ret["bytesRcvDrop"] = stats.byteRcvDrop;
+        ret["mbpsRecvRate"] = stats.mbpsRecvRate;
+        ret["rtt"] = stats.msRTT;
+        ret["msRcvBuf"] = stats.msRcvBuf;
+        ret["mbpsBandwidth"] = stats.mbpsBandwidth;
+        ret["bitrate"] = role->get_bitrate();
+        ret["uptime"] = role->get_uptime();
+        
+        return ret;
+    }
+
+    // Wenn kein Stream gefunden wurde
+    ret["status"] = "error";
+    ret["message"] = "No active stream found for this endpoint";
+    return ret;
 }

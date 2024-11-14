@@ -7,28 +7,32 @@ set(CMAKE_CXX_FLAGS "-Wall -Wno-invalid-offsetof -fcompare-debug-second")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -s")
 
-set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin )
-set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib )
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-include(CTest)
-enable_testing()
+# OpenSSL
+find_package(OpenSSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
 
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-include(CPack)
+# jwt-cpp (header-only library)
+add_subdirectory(lib/jwt-cpp EXCLUDE_FROM_ALL)
+include_directories(${CMAKE_SOURCE_DIR}/lib/jwt-cpp/include)
 
-add_compile_definitions( SLS_VERSION="${PROJECT_VERSION}" )
-
-# Use spdlog
+# Rest of existing configuration...
 add_subdirectory(${PROJECT_SOURCE_DIR}/lib/spdlog)
 find_package(spdlog)
 
-# Use JSON library
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 add_subdirectory(${PROJECT_SOURCE_DIR}/lib/json)
 
-# Use threads library
 find_package(Threads)
-
-# Use SLS Core
 add_subdirectory(${PROJECT_SOURCE_DIR}/src)
+
+target_link_libraries(srt_server 
+    PRIVATE 
+    spdlog::spdlog
+    nlohmann_json::nlohmann_json
+    ${OPENSSL_LIBRARIES}
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)

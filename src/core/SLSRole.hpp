@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -99,6 +98,8 @@ public:
     int check_http_passed();
 
     void set_record_hls_path(const char *hls_path);
+
+    CSLSSrt* get_srt() { return m_srt; }
 
 protected:
     CSLSSrt *m_srt;
