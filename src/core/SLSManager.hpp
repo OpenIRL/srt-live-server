@@ -112,4 +112,5 @@ private:
     CSLSListener* m_listener;
 
     int init_from_config(sls_conf_srt_t* conf);
+    int create_listener(int port, bool is_ingest);
 };

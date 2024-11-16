@@ -22,17 +22,7 @@ include_directories(${CMAKE_SOURCE_DIR}/lib/jwt-cpp/include)
 add_subdirectory(${PROJECT_SOURCE_DIR}/lib/spdlog)
 find_package(spdlog)
 
-set(JSON_BuildTests OFF CACHE INTERNAL "")
-add_subdirectory(${PROJECT_SOURCE_DIR}/lib/json)
+# add_subdirectory(lib/json)
 
 find_package(Threads)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src)
-
-target_link_libraries(srt_server 
-    PRIVATE 
-    spdlog::spdlog
-    nlohmann_json::nlohmann_json
-    ${OPENSSL_LIBRARIES}
-    OpenSSL::SSL
-    OpenSSL::Crypto
-)

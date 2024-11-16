@@ -193,4 +193,30 @@ std::string CSLSEndpointManager::generate_random_string(size_t length) {
     }
     
     return result;
+}
+
+void CSLSEndpointManager::set_ports(const SLSEndpointPorts& ports) {
+    m_ports = ports;
+}
+
+int CSLSEndpointManager::get_port_for_endpoint(const std::string& endpoint) {
+    // Hauptlogik nur für ingest/outgest
+    if (is_valid_ingest(endpoint)) {
+        return m_ports.ingest_port;
+    }
+    return m_ports.outgest_port;
+}
+
+bool CSLSEndpointManager::is_valid_endpoint_for_port(const std::string& endpoint, int port) {
+    if (port == m_ports.ingest_port) {
+        return is_valid_ingest(endpoint);
+    }
+    if (port == m_ports.outgest_port) {
+        return !is_valid_ingest(endpoint);  // Outgest ist alles, was kein Ingest ist
+    }
+    return port == m_ports.http_port;  // Erlaubt HTTP-Port für Stats
+}
+
+bool CSLSEndpointManager::is_valid_ingest(const std::string& endpoint) {
+    return endpoint.find("/ingest/") != std::string::npos;
 } 

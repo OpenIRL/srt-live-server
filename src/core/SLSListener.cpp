@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -499,49 +498,17 @@ int CSLSListener::handler()
         }
         else
         {
-            // Get IP address of remote peer
-            if (srt->libsrt_getpeeraddr_raw(peer_addr_raw) == SLS_OK)
-            {
-                // If/when we match an address, set this flag to break out of the for loop
-                bool address_matched = false;
-                for (sls_ip_access_t &acl_entry : ca->ip_actions.play)
-                {
-                    if (acl_entry.ip_address == peer_addr_raw || acl_entry.ip_address == 0)
-                    {
-                        switch (acl_entry.action)
-                        {
-                        case sls_access_action::ACCEPT:
-                            address_matched = true;
-                            spdlog::info("[{}] CSLSListener::handler Accepted connection from {}:{:d} for app '{}'",
-                                         fmt::ptr(this), peer_name, peer_port, ca->app_publisher);
-                            break;
-                        case sls_access_action::DENY:
-                            spdlog::warn("[{}] CSLSListener::handler Rejected connection from {}:{:d} for app '{}'",
-                                         fmt::ptr(this), peer_name, peer_port, ca->app_publisher);
-                            srt->libsrt_close();
-                            delete srt;
-                            return client_count;
-                        default:
-                            spdlog::error("[{}] CSLSListener::handler Unknown action [sls_access_action={:d}], ignoring",
-                                          fmt::ptr(this), (int)acl_entry.action);
-                        }
-                    }
-
-                    if (address_matched)
-                        break;
-                }
-                // If we don't have any entries regarding the peer, accept by default
-                if (!address_matched)
-                {
-                    spdlog::info("[{}] CSLSListener::handler Accepted connection from {}:{:d} for app '{}' by default",
-                                 fmt::ptr(this), peer_name, peer_port, ca->app_publisher);
-                }
+            // Validiere den Stream über die Endpoint-Konfiguration
+            if (!m_endpoint_manager->is_valid_endpoint_for_port(sid, peer_port)) {
+                spdlog::warn("[{}] CSLSListener::handler Rejected connection from {}:{:d} - invalid endpoint",
+                             fmt::ptr(this), peer_name, peer_port);
+                srt->libsrt_close();
+                delete srt;
+                return client_count;
             }
-            else
-            {
-                spdlog::error("[{}] CSLSListener::handler ACL check failed: could not get peer address", fmt::ptr(this));
-                spdlog::error("[{}] CSLSListener::handler Accepting connection by default", fmt::ptr(this));
-            }
+            
+            spdlog::info("[{}] CSLSListener::handler Accepted connection from {}:{:d} for endpoint '{}'",
+                         fmt::ptr(this), peer_name, peer_port, sid);
         }
 
         // 3.2 handle new play

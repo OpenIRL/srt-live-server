@@ -174,7 +174,43 @@ int CSLSManager::start()
         return SLS_ERROR;
     }
 
+    // Konfiguriere die Ports für den EndpointManager
+    SLSEndpointPorts ports;
+    ports.ingest_port = conf_srt->ingest_port;
+    ports.outgest_port = conf_srt->outgest_port;
+    m_endpoint_manager->set_ports(ports);
+    
+    // Erstelle separate Listener für Ingest und Outgest
+    if (SLS_OK != create_listener(conf_srt->ingest_port, true) ||
+        SLS_OK != create_listener(conf_srt->outgest_port, false)) {
+        spdlog::error("Failed to create SRT listeners");
+        return SLS_ERROR;
+    }
+    
     return ret;
+}
+
+int CSLSManager::create_listener(int port, bool is_ingest) {
+    CSLSListener* listener = new CSLSListener();
+    if (NULL == listener) {
+        sls_log(SLS_LOG_ERROR, "[%p]CSLSManager::create_listener, new CSLSListener failed.", this);
+        return SLS_ERROR;
+    }
+    
+    listener->set_manager(this);
+    listener->set_ingest_type(is_ingest);
+    if (SLS_OK != listener->init(port)) {
+        sls_log(SLS_LOG_ERROR, "[%p]CSLSManager::create_listener, listener->init failed.", this);
+        delete listener;
+        return SLS_ERROR;
+    }
+    
+    if (SLS_OK != listener->start()) {
+        sls_log(SLS_LOG_ERROR, "[%p]CSLSManager::create_listener, listener->start failed.", this);
+        delete listener;
+        return SLS_ERROR;
+    }
+    return SLS_OK;
 }
 
 json CSLSManager::generate_json_for_publisher(std::string publisherName, int clear) {
@@ -439,6 +475,12 @@ int CSLSManager::init_from_config(sls_conf_srt_t* conf) {
     auth.token_secret = conf->endpoint_auth.token_secret;
     auth.token_expire = conf->endpoint_auth.token_expire;
     m_endpoint_manager->set_auth_config(auth);
+    
+    // Konfiguriere die Ports für den EndpointManager
+    SLSEndpointPorts ports;
+    ports.ingest_port = conf->ingest_port;
+    ports.outgest_port = conf->outgest_port;
+    m_endpoint_manager->set_ports(ports);
     
     // Load existing endpoints
     m_endpoint_manager->load_endpoints();

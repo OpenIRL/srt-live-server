@@ -6,6 +6,10 @@ target_link_libraries(srt_server
         spdlog
         -lsrt
         ${CMAKE_THREAD_LIBS_INIT}
+        nlohmann_json::nlohmann_json
+        ${OPENSSL_LIBRARIES}
+        OpenSSL::SSL
+        OpenSSL::Crypto
 )
 
 add_executable(srt_client ${CMAKE_CURRENT_SOURCE_DIR}/srt-live-client.cpp)

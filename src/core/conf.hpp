@@ -111,7 +111,6 @@ const char *sls_conf_set_int(const char *v, sls_conf_cmd_t *cmd, void *conf);
 const char *sls_conf_set_string(const char *v, sls_conf_cmd_t *cmd, void *conf);
 const char *sls_conf_set_double(const char *v, sls_conf_cmd_t *cmd, void *conf);
 const char *sls_conf_set_bool(const char *v, sls_conf_cmd_t *cmd, void *conf);
-const char *sls_conf_set_ipset(const char *v, sls_conf_cmd_t *cmd, void *conf);
 
 /**
  * runtime conf
@@ -277,12 +276,6 @@ struct sls_conf_srt_t : public sls_conf_base_t {
     int backlog;
     int idle_streams_timeout;
     
-    // Access control
-    char allow_publish[URL_MAX_LEN];
-    char allow_play[URL_MAX_LEN];
-    char deny_publish[URL_MAX_LEN];
-    char deny_play[URL_MAX_LEN];
-    
     // Recording
     bool record_hls;
     int record_hls_segment_duration;
@@ -304,4 +297,8 @@ struct sls_conf_srt_t : public sls_conf_base_t {
         int idle_streams_timeout;
         char upstreams[URL_MAX_LEN];
     } relay_push;
+    
+    // Ports
+    int ingest_port;
+    int outgest_port;
 };

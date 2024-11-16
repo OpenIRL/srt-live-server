@@ -51,7 +51,7 @@ public:
     CSLSRole* get_role_by_endpoint(const std::string& outgest) {
         CSLSLock lock(&m_rwclock, false);
         
-        for (auto& item : m_map_publisher) {
+        for (auto& item : m_map_push_2_pushlisher) {
             CSLSRole* role = item.second;
             if (!role || !role->get_srt()) continue;
 

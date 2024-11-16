@@ -18,6 +18,12 @@ struct SLSEndpoint {
     std::string outgest;
 };
 
+struct SLSEndpointPorts {
+    int ingest_port;
+    int outgest_port;
+    int http_port;
+};
+
 class CSLSEndpointManager {
 public:
     CSLSEndpointManager();
@@ -49,11 +55,27 @@ public:
         m_config_file = config_file;
     }
 
+    bool is_valid_endpoint_for_port(const std::string& streamid, int port) {
+        CSLSLock lock(&m_mutex);
+        if (port == m_ports.ingest_port) {
+            return is_valid_ingest(streamid);
+        } else if (port == m_ports.outgest_port) {
+            return is_valid_outgest(streamid);
+        }
+        return false;
+    }
+
+    void set_ports(const SLSEndpointPorts& ports);
+    int get_port_for_endpoint(const std::string& endpoint);
+    bool is_valid_endpoint_for_port(const std::string& endpoint, int port);
+    bool is_valid_ingest(const std::string& endpoint);
+
 private:
     std::vector<SLSEndpoint> m_endpoints;
     std::string m_config_file;
     CSLSMutex m_mutex;
     SLSEndpointAuth m_auth;
+    SLSEndpointPorts m_ports;
     
     std::string generate_random_string(size_t length);
     bool verify_auth_header(const std::string& auth_header);
