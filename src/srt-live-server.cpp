@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
         strcpy(cors_header, conf_srt->cors_header);
     }
 
-    svr.Get("/stats", [&](const Request& req, Response& res) {
+    svr.Get(R"(/stats/(.+))", [&](const Request& req, Response& res) {
         json ret;
 
         if (!sls_manager) {
@@ -216,16 +216,10 @@ int main(int argc, char *argv[])
             return;
         }
 
-        if (!req.has_param("publisher")) {
-            ret["status"]  = "error";
-            ret["message"] = "Missing required parameter: publisher";
-            res.set_header("Access-Control-Allow-Origin", cors_header);
-            res.set_content(ret.dump(), "application/json");
-            return;
-        }
-
+        std::string publisher = req.matches[1];
         int clear = req.has_param("reset") ? 1 : 0;
-        ret = sls_manager->generate_json_for_publisher(req.get_param_value("publisher"), clear);
+
+        ret = sls_manager->generate_json_for_publisher(publisher, clear);
 
         if (ret["status"] == "error") {
             res.status = 404;
