@@ -69,7 +69,7 @@ static void usage()
     spdlog::info("{: ^{}}", "irl-srt-server", BANNER_WIDTH);
     spdlog::info("{: ^{}}", VERSION_STRING, BANNER_WIDTH);
     spdlog::info("{: ^{}}", "Based on srt-live-server", BANNER_WIDTH);
-    spdlog::info("{: ^{}}", "Modified by IRLServer (https://github.com/irlserver/irl-srt-server)", BANNER_WIDTH);
+    spdlog::info("{: ^{}}", "Modified by OpenIRL", BANNER_WIDTH);
     spdlog::info("{:-<{}}", "", BANNER_WIDTH);
 }
 
