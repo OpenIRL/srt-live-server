@@ -208,8 +208,9 @@ int main(int argc, char *argv[])
         json ret;
 
         if (!sls_manager) {
-            ret["status"]  = "error";
+            ret["status"] = "error";
             ret["message"] = "sls manager not found";
+            res.status = 500;
             res.set_header("Access-Control-Allow-Origin", cors_header);
             res.set_content(ret.dump(), "application/json");
             return;
@@ -225,6 +226,10 @@ int main(int argc, char *argv[])
 
         int clear = req.has_param("reset") ? 1 : 0;
         ret = sls_manager->generate_json_for_publisher(req.get_param_value("publisher"), clear);
+
+        if (ret["status"] == "error") {
+            res.status = 404;
+        }
 
         res.set_header("Access-Control-Allow-Origin", cors_header);
         res.set_content(ret.dump(), "application/json");
