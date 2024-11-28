@@ -82,7 +82,7 @@ int CSLSMapPublisher::set_push_2_pushlisher(std::string app_streamname, CSLSRole
     }
 
     m_map_push_2_pushlisher[app_streamname] = role;
-    spdlog::info("[{}] CSLSMapPublisher::set_push_2_pushlisher, ok, {}={}, app_streamname={}, m_map_push_2_pushlisher.size()={:d}.",
+    spdlog::debug("[{}] CSLSMapPublisher::set_push_2_pushlisher, ok, {}={}, app_streamname={}, m_map_push_2_pushlisher.size()={:d}.",
                  fmt::ptr(this), role->get_role_name(), fmt::ptr(role), app_streamname.c_str(), m_map_push_2_pushlisher.size());
     return SLS_OK;
 }
@@ -147,7 +147,7 @@ int CSLSMapPublisher::remove(CSLSRole *role)
     {
         if (role == pub)
         {
-            spdlog::info("[{}] CSLSMapPublisher::remove, {}={}, live_key={}.",
+            spdlog::debug("[{}] CSLSMapPublisher::remove, {}={}, live_key={}.",
                          fmt::ptr(this), pub->get_role_name(), fmt::ptr(pub), live_stream_name);
             m_map_push_2_pushlisher.erase(live_stream_name);
             ret = SLS_OK;

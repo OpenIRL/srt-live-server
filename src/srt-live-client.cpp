@@ -151,12 +151,12 @@ int main(int argc, char *argv[])
 			}
 			else if (fpid == 0)
 			{
-				spdlog::info("Child process spawned [PID={:d}]", getpid());
+				spdlog::debug("Child process spawned [PID={:d}]", getpid());
 				break;
 			}
 			else
 			{
-				spdlog::info("Parent process resumed [PID={:d}]", getpid());
+				spdlog::debug("Parent process resumed [PID={:d}]", getpid());
 			}
 		}
 	}
@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	spdlog::info("Stopping SLS_client");
+	spdlog::debug("Stopping SLS_client");
 	sls_client.close();
 
 	spdlog::info("Execution finished, goodbye.");

@@ -367,7 +367,7 @@ int CSLSListener::handler()
         delete srt;
         return client_count;
     }
-    spdlog::info("[{}] CSLSListener::handler, new client[{}:{:d}], fd={:d}.", fmt::ptr(this), peer_name, peer_port, fd_client);
+    spdlog::debug("[{}] CSLSListener::handler, new client[{}:{:d}], fd={:d}.", fmt::ptr(this), peer_name, peer_port, fd_client);
 
     if (0 != srt->libsrt_getsockopt(SRTO_STREAMID, "SRTO_STREAMID", &sid, &sid_size))
     {
@@ -448,8 +448,8 @@ int CSLSListener::handler()
             CSLSRelayManager *puller_manager = m_map_puller->add_relay_manager(app_uplive.c_str(), stream_name);
             if (NULL == puller_manager)
             {
-                spdlog::info("[{}] CSLSListener::handler, m_map_puller->add_relay_manager failed, new role[{}:{:d}], stream='{}', publisher is NULL, no puller_manager.",
-                             fmt::ptr(this), peer_name, peer_port, key_stream_name);
+                spdlog::debug("[{}] CSLSListener::handler, m_map_puller->add_relay_manager failed, new role[{}:{:d}], stream='{}', publisher is NULL, no puller_manager.",
+                              fmt::ptr(this), peer_name, peer_port, key_stream_name);
                 srt->libsrt_close();
                 delete srt;
                 return client_count;
@@ -468,8 +468,8 @@ int CSLSListener::handler()
                 delete srt;
                 return client_count;
             }
-            spdlog::info("[{}] CSLSListener::handler, puller_manager->start ok, new client[{}:{:d}], stream={}.",
-                         fmt::ptr(this), peer_name, peer_port, key_stream_name);
+            spdlog::debug("[{}] CSLSListener::handler, puller_manager->start ok, new client[{}:{:d}], stream={}.",
+                          fmt::ptr(this), peer_name, peer_port, key_stream_name);
 
             pub = m_map_publisher->get_publisher(key_stream_name);
             if (NULL == pub)
@@ -482,8 +482,8 @@ int CSLSListener::handler()
             }
             else
             {
-                spdlog::info("[{}] CSLSListener::handler, m_map_publisher->get_publisher ok, pub={}, new client[{}:{:d}], stream={}.",
-                             fmt::ptr(this), fmt::ptr(pub), peer_name, peer_port, key_stream_name);
+                spdlog::debug("[{}] CSLSListener::handler, m_map_publisher->get_publisher ok, pub={}, new client[{}:{:d}], stream={}.",
+                              fmt::ptr(this), fmt::ptr(pub), peer_name, peer_port, key_stream_name);
             }
         }
 
@@ -581,8 +581,8 @@ int CSLSListener::handler()
         player->on_connect();
 
         m_list_role->push(player);
-        spdlog::info("[{}] CSLSListener::handler, new player[{}] =[{}:{:d}], key_stream_name={}, {}={}, m_list_role->size={:d}.",
-                     fmt::ptr(this), fmt::ptr(player), peer_name, peer_port, key_stream_name, player->get_role_name(), fmt::ptr(player), m_list_role->size());
+        spdlog::debug("[{}] CSLSListener::handler, new player[{}] =[{}:{:d}], key_stream_name={}, {}={}, m_list_role->size={:d}.",
+                      fmt::ptr(this), fmt::ptr(player), peer_name, peer_port, key_stream_name, player->get_role_name(), fmt::ptr(player), m_list_role->size());
         return client_count;
     }
 
@@ -689,8 +689,8 @@ int CSLSListener::handler()
     }
     pub->set_record_hls_path(tmp);
 
-    spdlog::info("[{}] CSLSListener::handler, new pub={}, key_stream_name={}.",
-                 fmt::ptr(this), fmt::ptr(pub), key_stream_name);
+    spdlog::debug("[{}] CSLSListener::handler, new pub={}, key_stream_name={}.",
+                  fmt::ptr(this), fmt::ptr(pub), key_stream_name);
 
     // init data array
     if (SLS_OK != m_map_data->add(key_stream_name))
@@ -716,8 +716,8 @@ int CSLSListener::handler()
     pub->set_map_data(key_stream_name, m_map_data);
     pub->on_connect();
     m_list_role->push(pub);
-    spdlog::info("[{}] CSLSListener::handler, new publisher[{}:{:d}], key_stream_name={}.",
-                 fmt::ptr(this), peer_name, peer_port, key_stream_name);
+    spdlog::debug("[{}] CSLSListener::handler, new publisher[{}:{:d}], key_stream_name={}.",
+                  fmt::ptr(this), peer_name, peer_port, key_stream_name);
 
     // 5. check pusher
     if (NULL == m_map_pusher)

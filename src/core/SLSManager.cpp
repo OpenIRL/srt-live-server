@@ -101,7 +101,7 @@ int CSLSManager::start()
 
     //role list
     m_list_role = new CSLSRoleList;
-    spdlog::info("[{}] CSLSManager::start, new m_list_role={}.", fmt::ptr(this), fmt::ptr(m_list_role));
+    spdlog::debug("[{}] CSLSManager::start, new m_list_role={}.", fmt::ptr(this), fmt::ptr(m_list_role));
 
     //create listeners according config, delete by groups
     for (i = 0; i < m_server_count; i++)
@@ -127,7 +127,7 @@ int CSLSManager::start()
         m_servers.push_back(p);
         conf = (sls_conf_server_t *)conf->sibling;
     }
-    spdlog::info("[{}] CSLSManager::start, init listeners, count={:d}.", fmt::ptr(this), m_server_count);
+    spdlog::debug("[{}] CSLSManager::start, init listeners, count={:d}.", fmt::ptr(this), m_server_count);
 
     //create groups
 
@@ -165,7 +165,7 @@ int CSLSManager::start()
             m_workers.push_back(p);
         }
     }
-    spdlog::info("[{}] CSLSManager::start, init worker, count={:d}.", fmt::ptr(this), m_worker_threads);
+    spdlog::debug("[{}] CSLSManager::start, init worker, count={:d}.", fmt::ptr(this), m_worker_threads);
 
     return ret;
 }
@@ -284,7 +284,7 @@ int CSLSManager::stop()
     //release rolelist
     if (m_list_role)
     {
-        spdlog::info("[{}] CSLSManager::stop, release rolelist, size={:d}.", fmt::ptr(this), m_list_role->size());
+        spdlog::debug("[{}] CSLSManager::stop, release rolelist, size={:d}.", fmt::ptr(this), m_list_role->size());
         m_list_role->erase();
         delete m_list_role;
         m_list_role = NULL;
@@ -334,7 +334,7 @@ int CSLSManager::check_invalid()
         }
         if (worker->is_exit())
         {
-            spdlog::info("[{}] CSLSManager::check_invalid, delete worker={}.",
+            spdlog::debug("[{}] CSLSManager::check_invalid, delete worker={}.",
                          fmt::ptr(this), fmt::ptr(worker));
             worker->stop();
             worker->uninit_epoll();

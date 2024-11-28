@@ -211,7 +211,7 @@ int CSLSRole::add_to_epoll(int eid)
     {
         m_srt->libsrt_set_eid(eid);
         ret = m_srt->libsrt_add_to_epoll(eid, m_is_write);
-        spdlog::info("[{}] CSLSRole::add_to_epoll, {}, sock={:d}, m_is_write={:d}, ret={:d}.",
+        spdlog::debug("[{}] CSLSRole::add_to_epoll, {}, sock={:d}, m_is_write={:d}, ret={:d}.",
                      fmt::ptr(this), m_role_name, get_fd(), m_is_write, ret);
     }
     return ret;
@@ -223,7 +223,7 @@ int CSLSRole::remove_from_epoll()
     if (m_srt)
     {
         ret = m_srt->libsrt_remove_from_epoll();
-        spdlog::info("[{}] CSLSRole::remove_from_epoll, {}, sock={:d}, ret={:d}.",
+        spdlog::debug("[{}] CSLSRole::remove_from_epoll, {}, sock={:d}, ret={:d}.",
                      fmt::ptr(this), m_role_name, get_fd(), ret);
     }
     return ret;
@@ -418,7 +418,7 @@ void CSLSRole::check_hls_file()
     if (m_record_hls_ts_fd)
     {
         m_record_hls_target_duration = m_record_hls_target_duration < d ? d : m_record_hls_target_duration;
-        spdlog::info("[{}] CSLSRole::check_hls_file, close ts file='{}', fd={:d}.", fmt::ptr(this), m_record_hls_ts_filename, m_record_hls_ts_fd);
+        spdlog::debug("[{}] CSLSRole::check_hls_file, close ts file='{}', fd={:d}.", fmt::ptr(this), m_record_hls_ts_filename, m_record_hls_ts_fd);
         ::close(m_record_hls_ts_fd);
         m_record_hls_ts_fd = 0;
 
@@ -454,7 +454,7 @@ void CSLSRole::check_hls_file()
     snprintf(m_record_hls_ts_filename, sizeof(m_record_hls_ts_filename), "%ld.ts", cur_tm_ms / 1000);
     snprintf(full_ts_name, sizeof(full_ts_name), "%s/%s", m_record_hls_path, m_record_hls_ts_filename);
     m_record_hls_ts_fd = ::open(full_ts_name, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IXOTH);
-    spdlog::info("[{}] CSLSRole::check_hls_file, create ts file='{}', fd={:d}.", fmt::ptr(this), full_ts_name, m_record_hls_ts_fd);
+    spdlog::debug("[{}] CSLSRole::check_hls_file, create ts file='{}', fd={:d}.", fmt::ptr(this), full_ts_name, m_record_hls_ts_fd);
     if (m_record_hls_ts_fd)
     {
         //write sps pps
