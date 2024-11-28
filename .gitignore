@@ -2,3 +2,4 @@ logs/
 build/
 fuzzing/
 .vscode/
+.idea/
