@@ -530,7 +530,7 @@ int CSLSRole::handler_read_data(int64_t *last_read_time)
 
     if (n != TS_UDP_LEN)
     {
-        spdlog::info("[{}] CSLSRole::handler_read_data, libsrt_read n={:d}, expect {:d}.", fmt::ptr(this), n, TS_UDP_LEN);
+        spdlog::debug("[{}] CSLSRole::handler_read_data, libsrt_read n={:d}, expect {:d}.", fmt::ptr(this), n, TS_UDP_LEN);
     }
 
     if (NULL == m_map_data)
