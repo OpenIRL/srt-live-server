@@ -1,0 +1,16 @@
+services:
+  srt-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    ports:
+      - "4001:4001/udp"
+      - "8080:8080/tcp"
+    restart: unless-stopped
+    networks:
+      - srt-network
+
+networks:
+  srt-network:
+    driver: bridge
