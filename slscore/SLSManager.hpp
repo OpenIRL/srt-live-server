@@ -85,7 +85,6 @@ public :
     int  stop();
     int  reload();
     int  single_thread_handler();
-    json generate_json_for_all_publishers(int clear);
     json generate_json_for_publisher(std::string publisherName, int clear);
     json create_json_stats_for_publisher(CSLSRole *role, int clear);
     int  check_invalid();

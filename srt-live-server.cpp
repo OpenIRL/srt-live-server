@@ -175,27 +175,28 @@ int main(int argc, char* argv[])
         strcpy(cors_header, conf_srt->cors_header);
     }
     
-    svr.Get("/stats", [&](const Request& req, Response& res) {
+    svr.Get(R"(/stats/(.+))", [&](const Request& req, Response& res) {
         json ret;
-        if (sls_manager != NULL) {
-            int clear = 0;
-            if (req.has_param("reset")) {
-                clear = 1;
-            }
-            if (!req.has_param("publisher")) {
-                ret = sls_manager->generate_json_for_all_publishers(clear);
-            } else {
-                ret = sls_manager->generate_json_for_publisher(req.get_param_value("publisher"), clear);
-            }
-        } else {
-            ret["status"]  = "error";
-            ret["message"] = "sls manager not found";      
+
+        if (!sls_manager) {
+            ret["status"] = "error";
+            ret["message"] = "sls manager not found";
+            res.status = 500;
+            res.set_header("Access-Control-Allow-Origin", cors_header);
+            res.set_content(ret.dump(), "application/json");
+            return;
         }
+
+        ret = sls_manager->generate_json_for_publisher(req.matches[1], req.has_param("reset") ? 1 : 0);
+        if (ret["status"] == "error") {
+            res.status = 404;
+        }
+
         res.set_header("Access-Control-Allow-Origin", cors_header);
         res.set_content(ret.dump(), "application/json");
     });
-    
-    if (conf_srt->http_port != NULL) {
+
+    if (conf_srt->http_port) {
         httpPort = conf_srt->http_port;
     }
     std::thread(httpWorker, std::ref(httpPort)).detach();
