@@ -1,0 +1,27 @@
+name: 'Release'
+
+on:
+  release:
+    types: [ published ]
+
+env:
+  docker_repo: 'ghcr.io'
+  image_name: 'openirl/srt-live-server'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Docker Build
+        uses: ./.github/actions/docker-build
+        with:
+          repository: ${{ env.docker_repo }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ env.image_name }}
+          push: true
