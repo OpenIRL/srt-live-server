@@ -1,0 +1,12 @@
+[
+    {"publisher": "internal_pub_001", "player": "live_stream"},
+    {"publisher": "internal_pub_001", "player": "player_key_123"},
+    {"publisher": "internal_pub_001", "player": "player_key_456"},
+    {"publisher": "demo_publisher", "player": "demo"},
+    {"publisher": "demo_publisher", "player": "demo_viewer"},
+    {"publisher": "demo_publisher", "player": "viewer_001"},
+    {"publisher": "demo_publisher", "player": "viewer_002"},
+    {"publisher": "event_pub_live", "player": "event_stream"},
+    {"publisher": "event_pub_live", "player": "event_viewer_vip"},
+    {"publisher": "event_pub_live", "player": "event_viewer_standard"}
+]

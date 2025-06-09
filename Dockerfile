@@ -38,7 +38,8 @@ COPY --from=builder /usr/local/lib/libsrt* /usr/local/lib
 COPY sls.conf /etc/sls/
 
 # expose ports
-EXPOSE 4001/udp 8080/tcp
+# Publisher port, Player port, HTTP API port
+EXPOSE 4001/udp 4000/udp 8080/tcp
 
 # run the server
 CMD ["/usr/local/bin/sls", "-c", "/etc/sls/sls.conf"]

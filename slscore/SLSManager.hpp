@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -80,32 +79,34 @@ public :
 	CSLSManager();
 	virtual ~CSLSManager();
 
+	virtual int start();
+	virtual int stop();
+	virtual int reload();
 
-    int  start();
-    int  stop();
-    int  reload();
-    int  single_thread_handler();
-    json generate_json_for_publisher(std::string publisherName, int clear);
-    json create_json_stats_for_publisher(CSLSRole *role, int clear);
-    int  check_invalid();
-    bool is_single_thread();
+	virtual int  single_thread_handler();
+	bool         is_single_thread();
+	int          check_invalid();
 
-    void       get_stat_info(std::string &info);
-    static int stat_client_callback(void *p, HTTP_CALLBACK_TYPE type, void *v, void* context);
+	json generate_json_for_publisher(std::string publisherName, int clear);
+	json create_json_stats_for_publisher(CSLSRole *role, int clear);
+	std::string find_publisher_by_player_key(const std::string& player_key);
+
+	void get_stat_info(std::string &info);
+	static int  stat_client_callback(void *p, HTTP_CALLBACK_TYPE type, void *v, void* context);
 
 private:
-    std::list<CSLSListener *>     m_servers;
-    int                           m_server_count;
-    CSLSMapData                  *m_map_data;
-    CSLSMapPublisher             *m_map_publisher;
-    CSLSMapRelay                 *m_map_puller;
-    CSLSMapRelay                 *m_map_pusher;
+	std::list<CSLSListener *>     m_servers;
+	int                           m_server_count;
+	CSLSMapData                  *m_map_data;
+	CSLSMapPublisher             *m_map_publisher;
+	CSLSMapRelay                 *m_map_puller;
+	CSLSMapRelay                 *m_map_pusher;
 
-    std::list<CSLSGroup    *>     m_workers;
-    int                           m_worker_threads;
+	std::list<CSLSGroup    *>     m_workers;
+	int                           m_worker_threads;
 
-    CSLSRoleList * m_list_role;
-    CSLSGroup    * m_single_group;
+	CSLSRoleList * m_list_role;
+	CSLSGroup    * m_single_group;
 };
 
 

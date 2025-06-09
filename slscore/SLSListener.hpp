@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -41,28 +40,34 @@
  * server conf
  */
 SLS_CONF_DYNAMIC_DECLARE_BEGIN(server)
-char             domain_player[URL_MAX_LEN];
-char             domain_publisher[URL_MAX_LEN];
-int              listen;
+int              listen_player;        // Port for players
+int              listen_publisher;     // Port for publishers
 int              backlog;
 int              latency;
 int              idle_streams_timeout;//unit s; -1: unlimited
 char             on_event_url[URL_MAX_LEN];
-char             default_sid[STR_MAX_LEN];
+char             stream_ids_file[URL_MAX_LEN]; // Path to stream IDs JSON file
+// Publisher specific settings
+int              publisher_exit_delay;
+char             record_hls[SHORT_STR_MAX_LEN];
+int              record_hls_segment_duration;
 SLS_CONF_DYNAMIC_DECLARE_END
 
 /**
  * sls_conf_server_t
  */
 SLS_CONF_CMD_DYNAMIC_DECLARE_BEGIN(server)
-SLS_SET_CONF(server, string, domain_player,        "play domain", 1,    URL_MAX_LEN-1),
-SLS_SET_CONF(server, string, domain_publisher,     "", 1,    URL_MAX_LEN-1),
-SLS_SET_CONF(server, int,    listen,               "listen port", 1, 65535),
+SLS_SET_CONF(server, int,    listen_player,        "listen port for players", 1, 65535),
+SLS_SET_CONF(server, int,    listen_publisher,     "listen port for publishers", 1, 65535),
 SLS_SET_CONF(server, int,    backlog,              "how many sockets may be allowed to wait until they are accepted", 1,    1024),
 SLS_SET_CONF(server, int,    latency,              "latency.", 1, 5000),
 SLS_SET_CONF(server, int,    idle_streams_timeout, "players idle timeout when no publisher" , -1, 86400),
 SLS_SET_CONF(server, string, on_event_url,         "on connect/close http url", 1,    URL_MAX_LEN-1),
-SLS_SET_CONF(server, string, default_sid,          "default sid to use when no streamid is given", 1, STR_MAX_LEN-1),
+SLS_SET_CONF(server, string, stream_ids_file,      "path to stream IDs JSON file", 1, URL_MAX_LEN-1),
+// Publisher specific settings
+SLS_SET_CONF(server, int,    publisher_exit_delay, "delay exit time, unit second.", 1, 300),
+SLS_SET_CONF(server, string, record_hls,           "record_hls switch", 1, SHORT_STR_MAX_LEN-1),
+SLS_SET_CONF(server, int,    record_hls_segment_duration, "record_hls_segment_duration", 1, 3600),
 SLS_CONF_CMD_DYNAMIC_DECLARE_END
 
 
@@ -89,6 +94,7 @@ public :
     void set_map_puller(CSLSMapRelay *map_puller);
     void set_map_pusher(CSLSMapRelay *map_puller);
     void set_record_hls_path_prefix(char *path);
+    void set_listener_type(bool is_publisher);
 
     virtual std::string get_stat_info();
 
@@ -102,12 +108,13 @@ private:
 
     int                 m_idle_streams_timeout_role;
     std::string 		m_stat_info;
-    char                m_default_sid[1024];
     char                m_http_url_role[URL_MAX_LEN];
     char                m_record_hls_path_prefix[URL_MAX_LEN];
+    bool                m_is_publisher_listener;
+    char                m_stream_id_json_path[URL_MAX_LEN];
 
     int  init_conf_app();
-
+    bool validate_stream_id(const char* stream_id, char* mapped_id = nullptr);
 
 };
 

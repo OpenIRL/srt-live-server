@@ -5,8 +5,11 @@ services:
       dockerfile: Dockerfile
     platform: linux/amd64
     ports:
+      - "4000:4000/udp"
       - "4001:4001/udp"
       - "8080:8080/tcp"
+    volumes:
+      - ./example_streamids.json:/etc/sls/streamids.json:ro
     restart: unless-stopped
     networks:
       - srt-network

@@ -42,7 +42,8 @@ OBJS = $(OUTPUT_PATH)/SLSLog.o \
 	$(OUTPUT_PATH)/HttpRoleList.o\
 	$(OUTPUT_PATH)/HttpClient.o\
 	$(OUTPUT_PATH)/SLSSyncClock.o\
-	$(OUTPUT_PATH)/TSFileTimeReader.o
+	$(OUTPUT_PATH)/TSFileTimeReader.o\
+	$(OUTPUT_PATH)/StreamIdMapper.o
 	
 CORE_PATH = slscore
 COMMON_FILES = common.hpp
