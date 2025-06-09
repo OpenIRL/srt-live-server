@@ -225,6 +225,7 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
     }
 
     ret["publishers"] = json::object();
+    ret["status"] = "ok";
 
     // Search for active publisher
     CSLSRole *role = nullptr;
@@ -245,7 +246,6 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
 
     // Success - return publisher statistics
     ret["publishers"] = json::object();
-    ret["status"] = "ok";
     ret["publishers"]["live"] = create_json_stats_for_publisher(role, clear);
     ret.erase("message");
     
