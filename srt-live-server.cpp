@@ -60,8 +60,8 @@ Server svr;
  * usage information
  */
 #define SLS_MAJOR_VERSION "1"
-#define SLS_MIN_VERSION "4"
-#define SLS_TEST_VERSION "x"
+#define SLS_MIN_VERSION "5"
+#define SLS_TEST_VERSION "0"
 static void usage()
 {
     printf("-------------------------------------------------\n");
