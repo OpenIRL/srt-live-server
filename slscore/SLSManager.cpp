@@ -224,6 +224,8 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
         return ret;
     }
 
+    ret["publishers"] = json::object();
+
     // Search for active publisher
     CSLSRole *role = nullptr;
     for (int i = 0; i < m_server_count; i++) {
@@ -236,7 +238,7 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
 
     if (role == nullptr) {
         ret["message"] = "Publisher is currently not streaming";
-        sls_log(SLS_LOG_INFO, "[%p]CSLSManager::generate_json_for_publisher, publisher not found: %s (mapped from player key: %s)", 
+        sls_log(SLS_LOG_DEBUG, "[%p]CSLSManager::generate_json_for_publisher, publisher not found: %s (mapped from player key: %s)",
                 this, mapped_publisher.c_str(), playerKey.c_str());
         return ret;
     }
