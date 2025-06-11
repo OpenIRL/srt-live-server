@@ -56,8 +56,7 @@ if "error while loading shared libraries: libsrt.so.1" occured, please add srt l
 
 use ffmpeg to push camera stream with SRT(on my mac):
 
-./ffmpeg -re -f avfoundation -i "0:0" -vcodec libx264 -acodec libmp3lame -ar 44100 -ac 1 -f mpegts "srt://[your.sls.ip]:4001?streamid=publisher_id"
-
+ffmpeg -re -f lavfi -i testsrc2=size=640x360:rate=25 -f lavfi -i sine=frequency=1000:sample_rate=48000 -c:v libx264 -preset ultrafast -tune zerolatency -c:a aac -f mpegts "srt://[your.sls.ip]:4001?streamid=publisher_id"
 
 2.how to play
 -------------
