@@ -51,6 +51,7 @@ int              stat_post_interval;
 char             record_hls_path_prefix[URL_MAX_LEN];
 int              http_port;
 char             cors_header[URL_MAX_LEN];
+char             database_path[URL_MAX_LEN];
 SLS_CONF_DYNAMIC_DECLARE_END
 
 
@@ -66,7 +67,8 @@ SLS_SET_CONF(srt, string, stat_post_url,               "statistic info post url"
 SLS_SET_CONF(srt, int,    stat_post_interval,          "interval of statistic info post.", 1, 60),
 SLS_SET_CONF(srt, string, record_hls_path_prefix,      "hls path prefix", 1, URL_MAX_LEN-1),
 SLS_SET_CONF(srt, int,    http_port,                   "rest api port", 1, 65535),
-SLS_SET_CONF(srt, string, cors_header,                 "cors header", 1, URL_MAX_LEN-1)
+SLS_SET_CONF(srt, string, cors_header,                 "cors header", 1, URL_MAX_LEN-1),
+SLS_SET_CONF(srt, string, database_path,               "sqlite database path", 1, URL_MAX_LEN-1)
 SLS_CONF_CMD_DYNAMIC_DECLARE_END
 
 
@@ -89,7 +91,7 @@ public :
 
 	json generate_json_for_publisher(std::string publisherName, int clear);
 	json create_json_stats_for_publisher(CSLSRole *role, int clear);
-	std::string find_publisher_by_player_key(const std::string& player_key);
+	char* find_publisher_by_player_key(char *player_key);
 
 	void get_stat_info(std::string &info);
 	static int  stat_client_callback(void *p, HTTP_CALLBACK_TYPE type, void *v, void* context);

@@ -35,7 +35,9 @@
 #include "SLSPlayer.hpp"
 #include "SLSPullerManager.hpp"
 #include "SLSPusherManager.hpp"
-#include "StreamIdMapper.hpp"
+#include "SLSMapRelay.hpp"
+#include "common.hpp"
+#include "SLSDatabase.hpp"
 
 using json = nlohmann::json;
 
@@ -185,21 +187,7 @@ int CSLSListener::init_conf_app()
     m_idle_streams_timeout_role  = conf_server->idle_streams_timeout;
     strcpy(m_http_url_role, conf_server->on_event_url);
     
-    // Load stream IDs file path from configuration and initialize StreamIdMapper
-    if (strlen(conf_server->stream_ids_file) > 0) {
-        strcpy(m_stream_id_json_path, conf_server->stream_ids_file);
-        sls_log(SLS_LOG_INFO, "[%p]CSLSListener::init_conf_app, using stream_ids_file='%s'.", 
-                this, m_stream_id_json_path);
-    } else {
-        sls_log(SLS_LOG_INFO, "[%p]CSLSListener::init_conf_app, no stream_ids_file configured, using default='%s'.", 
-                this, m_stream_id_json_path);
-    }
-    
-    // Initialize StreamIdMapper singleton
-    if (!StreamIdMapper::getInstance().init(std::string(m_stream_id_json_path))) {
-        sls_log(SLS_LOG_WARNING, "[%p]CSLSListener::init_conf_app, failed to initialize StreamIdMapper with file='%s'.", 
-                this, m_stream_id_json_path);
-    }
+    sls_log(SLS_LOG_INFO, "[%p]CSLSListener::init_conf_app, using SQLite database for stream ID management.", this);
     
     sls_log(SLS_LOG_INFO, "[%p]CSLSListener::init_conf_app, m_back_log=%d, m_idle_streams_timeout=%d.",
             this, m_back_log, m_idle_streams_timeout_role);
@@ -319,29 +307,22 @@ int CSLSListener::stop()
 
 bool CSLSListener::validate_stream_id(const char* stream_id, char* mapped_id)
 {
-    StreamIdMapper& mapper = StreamIdMapper::getInstance();
+    bool valid = CSLSDatabase::getInstance().validateStreamId(stream_id, m_is_publisher_listener, mapped_id);
     
-    if (m_is_publisher_listener) {
-        // For publisher, check if the stream ID is a valid publisher ID
-        if (mapper.isValidPublisher(std::string(stream_id))) {
-            return true;
+    if (valid) {
+        if (m_is_publisher_listener) {
+            sls_log(SLS_LOG_INFO, "[%p]CSLSListener::validate_stream_id, valid publisher stream ID='%s'", 
+                    this, stream_id);
+        } else {
+            sls_log(SLS_LOG_INFO, "[%p]CSLSListener::validate_stream_id, valid player stream ID='%s'%s", 
+                    this, stream_id, mapped_id ? " -> publisher" : "");
         }
-        sls_log(SLS_LOG_WARNING, "[%p]CSLSListener::validate_stream_id, invalid publisher stream ID='%s'", 
-                this, stream_id);
-        return false;
     } else {
-        // For player, check if the stream ID is a valid player ID and get mapped publisher ID
-        std::string publisher_id;
-        if (mapper.isValidPlayer(std::string(stream_id), &publisher_id)) {
-            if (mapped_id != nullptr) {
-                strcpy(mapped_id, publisher_id.c_str());
-            }
-            return true;
-        }
-        sls_log(SLS_LOG_WARNING, "[%p]CSLSListener::validate_stream_id, invalid player stream ID='%s'", 
-                this, stream_id);
-        return false;
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSListener::validate_stream_id, invalid %s stream ID='%s'", 
+                this, m_is_publisher_listener ? "publisher" : "player", stream_id);
     }
+    
+    return valid;
 }
 
 int CSLSListener::handler()

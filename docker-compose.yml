@@ -1,18 +1,19 @@
 services:
-  srt-server:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    platform: linux/amd64
-    ports:
-      - "4000:4000/udp"
-      - "4001:4001/udp"
-      - "8080:8080/tcp"
-    volumes:
-      - ./example_streamids.json:/etc/sls/streamids.json:ro
+  srt-live-server:
+    build: .
+    container_name: srt-live-server
     restart: unless-stopped
+    ports:
+      - "4000:4000/udp"  # Player port
+      - "4001:4001/udp"  # Publisher port
+      - "8080:8080/tcp"  # HTTP API port
+    volumes:
+      - sls_data:/var/lib/sls  # Persistent storage for database
     networks:
       - srt-network
+
+volumes:
+  sls_data:
 
 networks:
   srt-network:

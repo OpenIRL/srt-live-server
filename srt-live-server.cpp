@@ -26,17 +26,15 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#include <httplib.h>
 
 using namespace std;
-using namespace httplib;
 
-#include "json.hpp"
+#include "version.hpp"
 #include "SLSLog.hpp"
 #include "SLSManager.hpp"
 #include "HttpClient.hpp"
-
-using json = nlohmann::json;
+#include "SLSDatabase.hpp"
+#include "SLSApiServer.hpp"
 
 /*
  * ctrl + c controller
@@ -47,25 +45,19 @@ static void ctrl_c_handler(int s){
     b_exit = true;
 }
 
-
 static bool b_reload = 0;
 static void reload_handler(int s){
     printf("\ncaught signal %d, reload.\n",s);
     b_reload = true;
 }
 
-Server svr;
-
 /**
  * usage information
  */
-#define SLS_MAJOR_VERSION "1"
-#define SLS_MIN_VERSION "5"
-#define SLS_TEST_VERSION "0"
 static void usage()
 {
     printf("-------------------------------------------------\n");
-    printf("           srt-live-srver \n");
+    printf("           srt-live-server \n");
     printf("                    v%s.%s.%s \n", SLS_MAJOR_VERSION, SLS_MIN_VERSION, SLS_TEST_VERSION);
     printf("-------------------------------------------------\n");
     printf("    \n");
@@ -76,12 +68,7 @@ static sls_conf_cmd_t  conf_cmd_opt[] = {
     SLS_SET_OPT(string, c, conf_file_name, "conf file name", 1, 1023),
     SLS_SET_OPT(string, s, c_cmd,          "cmd: reload", 1, 1023),
     SLS_SET_OPT(string, l, log_level,      "log level: fatal/error/warning/info/debug/trace", 1, 1023),
-//  SLS_SET_OPT(int, x, xxx,          "", 1, 100),//example
 };
-
-void httpWorker(int bindPort) {
-    svr.listen("::", bindPort);    
-}
 
 int main(int argc, char* argv[])
 {
@@ -89,13 +76,11 @@ int main(int argc, char* argv[])
     struct sigaction    sigHupHandler;
     sls_opt_t           sls_opt;
 
-    CSLSManager             *sls_manager = NULL;
-    std:list <CSLSManager*>  reload_manager_list;
+    std::list <CSLSManager*>  reload_manager_list;
     CHttpClient             *http_stat_client = new CHttpClient;
+    CSLSApiServer           *api_server = nullptr;
 
     int ret = SLS_OK;
-    int httpPort = 8181;
-    char cors_header[URL_MAX_LEN] = "*";
     int l = sizeof(sockaddr_in);
     int64_t tm_begin_ms = 0;
 
@@ -126,9 +111,6 @@ int main(int argc, char* argv[])
         sls_set_log_level(sls_opt.log_level);
     }
 
-    //test erro info...
-    //CSLSSrt::libsrt_print_error_info();
-
     //ctrl + c to exit
     sigIntHandler.sa_handler = ctrl_c_handler;
     sigemptyset(&sigIntHandler.sa_mask);
@@ -151,55 +133,72 @@ int main(int argc, char* argv[])
     ret = sls_conf_open(sls_opt.conf_file_name);
     if (ret!= SLS_OK) {
         sls_log(SLS_LOG_INFO, "sls_conf_open failed, EXIT!");
-        goto EXIT_PROC;
+        CSLSSrt::libsrt_uninit();
+        CSLSLog::destory_instance();
+        return -1;
     }
 
     if (0 != sls_write_pid(getpid())) {
         sls_log(SLS_LOG_INFO, "sls_write_pid failed, EXIT!");
-        goto EXIT_PROC;
+        sls_conf_close();
+        CSLSSrt::libsrt_uninit();
+        CSLSLog::destory_instance();
+        return -1;
     }
+
     //sls manager
     sls_log(SLS_LOG_INFO, "\nsrt live server is running...");
 
-    sls_manager  = new CSLSManager;
+    CSLSManager* sls_manager = new CSLSManager;
     if (SLS_OK != sls_manager->start()) {
         sls_log(SLS_LOG_INFO, "sls_manager->start failed, EXIT!");
-        goto EXIT_PROC;
+        delete sls_manager;
+        sls_remove_pid();
+        sls_conf_close();
+        CSLSSrt::libsrt_uninit();
+        CSLSLog::destory_instance();
+        return -1;
     }
 
     conf_srt = (sls_conf_srt_t *)sls_conf_get_root_conf();
     if (strlen(conf_srt->stat_post_url) > 0)
         http_stat_client->open(conf_srt->stat_post_url, stat_method, conf_srt->stat_post_interval);
-        
-    if (strlen(conf_srt->cors_header) > 0) {
-        strcpy(cors_header, conf_srt->cors_header);
+    
+    // Initialize SQLite database
+    std::string db_path = "/var/lib/sls/streams.db";  // Default to writable location
+    if (strlen(conf_srt->database_path) > 0) {
+        db_path = conf_srt->database_path;
     }
     
-    svr.Get(R"(/stats/(.+))", [&](const Request& req, Response& res) {
-        json ret;
-
-        if (!sls_manager) {
-            ret["status"] = "error";
-            ret["message"] = "sls manager not found";
-            res.status = 500;
-            res.set_header("Access-Control-Allow-Origin", cors_header);
-            res.set_content(ret.dump(), "application/json");
-            return;
+    if (!CSLSDatabase::getInstance().init(db_path)) {
+        sls_log(SLS_LOG_ERROR, "Failed to initialize database at %s", db_path.c_str());
+        // Try fallback path
+        if (!CSLSDatabase::getInstance().init("/tmp/streams.db")) {
+            sls_log(SLS_LOG_ERROR, "Failed to initialize fallback database");
+            sls_manager->stop();
+            delete sls_manager;
+            if (http_stat_client) {
+                http_stat_client->close();
+                delete http_stat_client;
+            }
+            sls_remove_pid();
+            CSLSSrt::libsrt_uninit();
+            sls_conf_close();
+            CSLSLog::destory_instance();
+            return -1;
         }
-
-        ret = sls_manager->generate_json_for_publisher(req.matches[1], req.has_param("reset") ? 1 : 0);
-        if (ret["status"] == "error") {
-            res.status = 404;
-        }
-
-        res.set_header("Access-Control-Allow-Origin", cors_header);
-        res.set_content(ret.dump(), "application/json");
-    });
-
-    if (conf_srt->http_port) {
-        httpPort = conf_srt->http_port;
+        sls_log(SLS_LOG_INFO, "Database initialized at fallback path: /tmp/streams.db");
     }
-    std::thread(httpWorker, std::ref(httpPort)).detach();
+    
+    // Initialize and start API server
+    api_server = new CSLSApiServer();
+    if (!api_server->init(conf_srt, sls_manager)) {
+        sls_log(SLS_LOG_ERROR, "Failed to initialize API server");
+        delete api_server;
+        api_server = nullptr;
+    } else {
+        api_server->start();
+    }
     
 	while(!b_exit)
 	{
@@ -224,16 +223,6 @@ int main(int argc, char* argv[])
 		}
 
 		msleep(10);
-
-		/*for test reload...
-		int64_t tm_cur = sls_gettime();
-		int64_t d = tm_cur - tm;
-		if ( d >= 10000000) {
-			b_reload = !b_reload;
-			tm = tm_cur;
-			printf("\n\n\n\n");
-		}
-		//*/
 
 		//check reloaded manager
 		int reload_managers = reload_manager_list.size();
@@ -280,13 +269,35 @@ int main(int argc, char* argv[])
                 sls_log(SLS_LOG_INFO, "reload, failed, sls_manager->start, exit.");
                 break;
             }
+            
+            // Reload configuration
+            conf_srt = (sls_conf_srt_t *)sls_conf_get_root_conf();
+            
             if (strlen(conf_srt->stat_post_url) > 0)
                 http_stat_client->open(conf_srt->stat_post_url, stat_method, conf_srt->stat_post_interval);
+                
+            // Restart API server with new configuration
+            if (api_server) {
+                api_server->stop();
+                delete api_server;
+                api_server = new CSLSApiServer();
+                if (api_server->init(conf_srt, sls_manager)) {
+                    api_server->start();
+                }
+            }
+            
             sls_log(SLS_LOG_INFO, "reload successfully.");
 		}
 	}
 
-EXIT_PROC:
+    // Cleanup
+    sls_log(SLS_LOG_INFO, "Shutting down...");
+    
+    if (api_server) {
+        api_server->stop();
+        delete api_server;
+    }
+
     sls_log(SLS_LOG_INFO, "exit, stop srt live server...");
 
 	//stop srt
@@ -319,6 +330,9 @@ EXIT_PROC:
     	delete http_stat_client;
     	http_stat_client = NULL;
     }
+
+    // Close database
+    CSLSDatabase::getInstance().close();
 
     sls_log(SLS_LOG_INFO, "exit, uninit srt .");
     //uninit srt

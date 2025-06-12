@@ -3,7 +3,7 @@ MAIN_NAME=sls
 CLIENT_NAME=slc
 INC_PATH = -I./ -I../ -I./slscore -I./include
 LIB_PATH =  -L ./lib
-LIBRARY_FILE = -lpthread -lz -lsrt
+LIBRARY_FILE = -lpthread -lz -lsrt -lcrypto -lsqlite3
 BIN_PATH = ./bin
 
 DEBUG = -g
@@ -43,7 +43,8 @@ OBJS = $(OUTPUT_PATH)/SLSLog.o \
 	$(OUTPUT_PATH)/HttpClient.o\
 	$(OUTPUT_PATH)/SLSSyncClock.o\
 	$(OUTPUT_PATH)/TSFileTimeReader.o\
-	$(OUTPUT_PATH)/StreamIdMapper.o
+	$(OUTPUT_PATH)/SLSDatabase.o\
+	$(OUTPUT_PATH)/SLSApiServer.o
 	
 CORE_PATH = slscore
 COMMON_FILES = common.hpp
@@ -59,7 +60,16 @@ all: $(OBJS)
 	#******************************************************************************#
 
 $(OUTPUT_PATH)/%.o: ./$(CORE_PATH)/%.cpp
-	${CXX} -c $(CFLAGS) $< -o $@ $(INC_FLAGS)
+	${CXX} -c $(CFLAGS) $< -o $@ $(INC_PATH)
+
+$(OUTPUT_PATH)/TSFileTimeReader.o: $(CORE_PATH)/TSFileTimeReader.cpp
+	$(CXX) -c $(CFLAGS) $< -o $@ $(INC_PATH)
+
+$(OUTPUT_PATH)/SLSDatabase.o: $(CORE_PATH)/SLSDatabase.cpp
+	$(CXX) -c $(CFLAGS) $< -o $@ $(INC_PATH)
+
+$(OUTPUT_PATH)/SLSApiServer.o: $(CORE_PATH)/SLSApiServer.cpp
+	$(CXX) -c $(CFLAGS) $< -o $@ $(INC_PATH)
 
 clean:
 	rm -f $(OUTPUT_PATH)/*.o

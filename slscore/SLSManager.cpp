@@ -31,7 +31,13 @@
 #include "SLSLog.hpp"
 #include "SLSListener.hpp"
 #include "SLSPublisher.hpp"
-#include "StreamIdMapper.hpp"
+#include "SLSMapData.hpp"
+#include "SLSRelayManager.hpp"
+#include "SLSPullerManager.hpp"
+#include "SLSMapRelay.hpp"
+#include "SLSPusherManager.hpp"
+#include "SLSMapPublisher.hpp"
+#include "SLSDatabase.hpp"
 
 using json = nlohmann::json;
 
@@ -189,19 +195,41 @@ int CSLSManager::start()
 
 }
 
-std::string CSLSManager::find_publisher_by_player_key(const std::string& player_key) {
-    StreamIdMapper& mapper = StreamIdMapper::getInstance();
-    
-    // Try to get publisher ID from player key
-    std::string publisher_id = mapper.getPublisherFromPlayer(player_key);
-    
+char* CSLSManager::find_publisher_by_player_key(char *player_key) {
+    // First check stream ID database
+    std::string publisher_id = CSLSDatabase::getInstance().getPublisherFromPlayer(player_key);
     if (!publisher_id.empty()) {
-        return publisher_id;
+        // Found in database - need to copy to static buffer
+        static char mapped_publisher[512];
+        strncpy(mapped_publisher, publisher_id.c_str(), sizeof(mapped_publisher) - 1);
+        mapped_publisher[sizeof(mapped_publisher) - 1] = '\0';
+        
+        sls_log(SLS_LOG_INFO, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' mapped to publisher '%s'",
+                this, player_key, mapped_publisher);
+        return mapped_publisher;
     }
     
-    sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' not found in StreamIdMapper", 
-            this, player_key.c_str());
-    return "";
+    sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' not found in database",
+            this, player_key);
+    
+    // If not found in database, check if it's a direct publisher key
+    CSLSRole* role = nullptr;
+    for (int i = 0; i < m_server_count; i++) {
+        role = m_map_publisher[i].get_publisher(player_key);
+        if (role != nullptr) {
+            break;
+        }
+    }
+    
+    if (role != NULL) {
+        sls_log(SLS_LOG_INFO, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' is a publisher key",
+                this, player_key);
+        return player_key;
+    }
+    
+    sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, no publisher found for player key '%s'",
+            this, player_key);
+    return NULL;
 }
 
 json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) {
@@ -216,13 +244,15 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
     }
 
     // Validate player key and get mapped publisher key
-    std::string mapped_publisher = find_publisher_by_player_key(playerKey);
-    if (mapped_publisher.empty()) {
+    char* mapped_publisher = find_publisher_by_player_key(const_cast<char*>(playerKey.c_str()));
+    if (mapped_publisher == NULL) {
         ret["message"] = "Invalid player key";
         sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::generate_json_for_publisher, invalid player key: %s", 
                 this, playerKey.c_str());
         return ret;
     }
+    
+    std::string publisher_key(mapped_publisher);
 
     ret["publishers"] = json::object();
     ret["status"] = "ok";
@@ -231,7 +261,7 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
     CSLSRole *role = nullptr;
     for (int i = 0; i < m_server_count; i++) {
         CSLSMapPublisher *publisher_map = &m_map_publisher[i];
-        role = publisher_map->get_publisher(mapped_publisher);
+        role = publisher_map->get_publisher(publisher_key.c_str());
         if (role != nullptr) {
             break;
         }
@@ -240,7 +270,7 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
     if (role == nullptr) {
         ret["message"] = "Publisher is currently not streaming";
         sls_log(SLS_LOG_DEBUG, "[%p]CSLSManager::generate_json_for_publisher, publisher not found: %s (mapped from player key: %s)",
-                this, mapped_publisher.c_str(), playerKey.c_str());
+                this, publisher_key.c_str(), playerKey.c_str());
         return ret;
     }
 
@@ -250,7 +280,7 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
     ret.erase("message");
     
     sls_log(SLS_LOG_DEBUG, "[%p]CSLSManager::generate_json_for_publisher, returning stats for publisher: %s (player key: %s)", 
-            this, mapped_publisher.c_str(), playerKey.c_str());
+            this, publisher_key.c_str(), playerKey.c_str());
     
     return ret;
 }
