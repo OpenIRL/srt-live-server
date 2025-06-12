@@ -286,17 +286,17 @@ The SQLite database (`/etc/sls/streams.db`) contains:
 ```bash
 # Get all stream IDs
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  http://localhost:8080/api/stream-ids
+  http://hostname:8080/api/stream-ids
 
 # Add new stream ID
 curl -X POST -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"publisher":"studio_1","player":"live_stream"}' \
-  http://localhost:8080/api/stream-ids
+  http://hostname:8080/api/stream-ids
 
 # Get statistics
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  http://localhost:8080/stats/live_stream
+  http://hostname:8080/stats/live_stream
 ```
 
 ### Python
@@ -305,7 +305,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 import requests
 
 API_KEY = "your_api_key_here"
-BASE_URL = "http://localhost:8080"
+BASE_URL = "http://hostname:8080"
 
 headers = {"Authorization": f"Bearer {API_KEY}"}
 
@@ -326,7 +326,7 @@ response = requests.post(f"{BASE_URL}/api/stream-ids", json=data, headers=header
 
 ```javascript
 const API_KEY = 'your_api_key_here';
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = 'http://hostname:8080';
 
 // List stream IDs
 fetch(`${BASE_URL}/api/stream-ids`, {
