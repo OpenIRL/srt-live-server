@@ -2,7 +2,7 @@
 
 ## Overview
 
-SRT Live Server (sls) is a low latency streaming server based on SRT (Secure Reliable Transport). This fork includes a secure REST API with authentication, SQLite database storage, and rate limiting for production use.
+SRT Live Server (sls) is a low latency streaming server that is using SRT (Secure Reliable Transport). This fork includes a secure REST API with authentication, SQLite database storage, and rate limiting for production use.
 
 ## Features
 
@@ -17,7 +17,7 @@ SRT Live Server (sls) is a low latency streaming server based on SRT (Secure Rel
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Edward-Wu/srt-live-server.git
+git clone https://github.com/OpenIRL/srt-live-server.git
 cd srt-live-server
 ```
 
@@ -36,6 +36,12 @@ You'll see something like:
 Generated default admin API key: AbCdEfGhIjKlMnOpQrStUvWxYz123456
 IMPORTANT: Save this key securely. It will not be shown again.
 ```
+
+4. Test video feed:
+
+ffmpeg -re -f lavfi -i testsrc2=size=640x360:rate=25 -f lavfi -i sine=frequency=1000:sample_rate=48000 -c:v libx264 -preset ultrafast -tune zerolatency -c:a aac -f mpegts "srt://[your.sls.ip]:4001?streamid=publisher_id"
+
+Receive it with OBS or VLC: srt://[your.sls.ip]:4000?streamid=player_id
 
 ## Configuration
 
