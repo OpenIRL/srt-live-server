@@ -72,6 +72,12 @@ bool CSLSDatabase::init(const std::string& db_path) {
         return false;
     }
     
+    // Enable SQLite optimizations for better performance
+    sqlite3_exec(m_db, "PRAGMA journal_mode=WAL", nullptr, nullptr, nullptr);  // Write-Ahead Logging
+    sqlite3_exec(m_db, "PRAGMA synchronous=NORMAL", nullptr, nullptr, nullptr); // Faster writes
+    sqlite3_exec(m_db, "PRAGMA cache_size=10000", nullptr, nullptr, nullptr);  // Larger cache
+    sqlite3_exec(m_db, "PRAGMA temp_store=MEMORY", nullptr, nullptr, nullptr); // Use memory for temp tables
+    
     if (!initSchema()) {
         close();
         return false;
