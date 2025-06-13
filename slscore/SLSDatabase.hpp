@@ -58,15 +58,13 @@ public:
     bool deleteStreamId(const std::string& player);
     json getStreamIdMapping();
     bool validateStreamId(const char* stream_id, bool is_publisher, char* mapped_id = nullptr);
-    
-    // API key operations
-    std::string hashApiKey(const std::string& key);
-    std::string generateApiKey();
+
+    // Authentication & API management
     bool verifyApiKey(const std::string& api_key, std::string& permissions);
     bool createApiKey(const std::string& name, const std::string& permissions, std::string& out_key);
     void logAccess(const std::string& api_key, const std::string& endpoint, 
                    const std::string& method, const std::string& ip, int response_code);
-    
+
     // Get publisher from player ID with caching
     std::string getPublisherFromPlayer(const std::string& player_id);
 
@@ -104,6 +102,10 @@ private:
     // Load all stream IDs into cache
     bool loadStreamIdsCacheIfNeeded() const;
     bool loadStreamIdsIntoCache();
+    
+    // API key management helpers
+    std::string hashApiKey(const std::string& key);
+    std::string generateApiKey();
     
     // Singleton
     static std::unique_ptr<CSLSDatabase> m_instance;
