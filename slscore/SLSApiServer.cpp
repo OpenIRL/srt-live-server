@@ -44,6 +44,14 @@ bool CSLSApiServer::init(sls_conf_srt_t* conf, CSLSManager* manager) {
     m_sls_manager = manager;
     m_port = conf->http_port > 0 ? conf->http_port : 8080;
     
+    // Initialize rate limits from configuration with defaults
+    m_rate_limit_config["api"] = conf->rate_limit_api > 0 ? conf->rate_limit_api : 30;
+    m_rate_limit_config["stats"] = conf->rate_limit_stats > 0 ? conf->rate_limit_stats : 300;
+    m_rate_limit_config["config"] = conf->rate_limit_config > 0 ? conf->rate_limit_config : 20;
+    
+    sls_log(SLS_LOG_INFO, "[CSLSApiServer] Rate limits configured: api=%d/min, stats=%d/min, config=%d/min",
+            m_rate_limit_config["api"], m_rate_limit_config["stats"], m_rate_limit_config["config"]);
+    
     setupEndpoints();
     return true;
 }
@@ -70,15 +78,27 @@ void CSLSApiServer::setCorsHeaders(httplib::Response& res) {
     res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
-bool CSLSApiServer::checkRateLimit(const std::string& ip, int max_requests, int window_seconds) {
+bool CSLSApiServer::checkRateLimit(const std::string& ip, const std::string& endpoint_type) {
     std::lock_guard<std::mutex> lock(m_rate_limit_mutex);
     
-    auto now = std::chrono::steady_clock::now();
-    auto& limit_info = m_rate_limits[ip];
+    // Get the configured limit for this endpoint type
+    auto limit_it = m_rate_limit_config.find(endpoint_type);
+    if (limit_it == m_rate_limit_config.end()) {
+        // Unknown endpoint type, allow by default
+        return true;
+    }
+    int max_requests = limit_it->second;
     
-    // Check if we need to reset the window
+    // Create a unique key for each IP + endpoint type combination
+    // This ensures that different endpoint types have separate rate limit counters
+    std::string rate_limit_key = ip + ":" + endpoint_type;
+    
+    auto now = std::chrono::steady_clock::now();
+    auto& limit_info = m_rate_limits[rate_limit_key];
+    
+    // Check if we need to reset the window (always 60 seconds)
     auto window_duration = std::chrono::duration_cast<std::chrono::seconds>(now - limit_info.window_start).count();
-    if (window_duration >= window_seconds) {
+    if (window_duration >= 60) {
         limit_info.requests = 0;
         limit_info.window_start = now;
     }
@@ -177,7 +197,7 @@ void CSLSApiServer::handleStreamIdsGet(const httplib::Request& req, httplib::Res
     setCorsHeaders(res);
     
     // Rate limiting
-    if (!checkRateLimit(req.remote_addr)) {
+    if (!checkRateLimit(req.remote_addr, "api")) {
         res.status = 429;
         json error;
         error["status"] = "error";
@@ -206,7 +226,7 @@ void CSLSApiServer::handleStreamIdsPost(const httplib::Request& req, httplib::Re
     setCorsHeaders(res);
     
     // Rate limiting
-    if (!checkRateLimit(req.remote_addr, 30)) { // Lower limit for write operations
+    if (!checkRateLimit(req.remote_addr, "api")) {
         res.status = 429;
         json error;
         error["status"] = "error";
@@ -285,7 +305,7 @@ void CSLSApiServer::handleStreamIdsDelete(const httplib::Request& req, httplib::
     setCorsHeaders(res);
     
     // Rate limiting
-    if (!checkRateLimit(req.remote_addr, 30)) {
+    if (!checkRateLimit(req.remote_addr, "api")) {
         res.status = 429;
         json error;
         error["status"] = "error";
@@ -334,7 +354,7 @@ void CSLSApiServer::handleStats(const httplib::Request& req, httplib::Response& 
     setCorsHeaders(res);
     
     // Rate limiting (but no authentication required for stats)
-    if (!checkRateLimit(req.remote_addr, 120)) { // Higher limit for stats
+    if (!checkRateLimit(req.remote_addr, "stats")) {
         res.status = 429;
         json error;
         error["status"] = "error";
@@ -365,7 +385,7 @@ void CSLSApiServer::handleConfig(const httplib::Request& req, httplib::Response&
     setCorsHeaders(res);
     
     // Rate limiting
-    if (!checkRateLimit(req.remote_addr)) {
+    if (!checkRateLimit(req.remote_addr, "config")) {
         res.status = 429;
         json error;
         error["status"] = "error";
@@ -401,7 +421,7 @@ void CSLSApiServer::handleApiKeys(const httplib::Request& req, httplib::Response
     setCorsHeaders(res);
     
     // Rate limiting
-    if (!checkRateLimit(req.remote_addr, 5)) { // Very limited for key creation
+    if (!checkRateLimit(req.remote_addr, "config")) {
         res.status = 429;
         json error;
         error["status"] = "error";

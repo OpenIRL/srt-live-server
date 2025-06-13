@@ -201,11 +201,32 @@ Content-Type: application/json
 
 ## Rate Limiting
 
-The API implements rate limiting to prevent abuse:
+The API implements rate limiting to prevent abuse. Each endpoint type has its own separate rate limit:
 
-- Default: 60 requests per minute per IP
-- Write operations: 30 requests per minute
-- API key creation: 5 requests per minute
+- **API endpoints** (`api`): 30 requests per minute per IP (configurable via `rate_limit_api`)
+  - GET /api/stream-ids
+  - POST /api/stream-ids
+  - DELETE /api/stream-ids/{player_id}
+- **Statistics** (`stats`): 300 requests per minute per IP (configurable via `rate_limit_stats`)
+  - GET /stats/{player_id}
+- **Configuration** (`config`): 20 requests per minute per IP (configurable via `rate_limit_config`)
+  - GET /api/config
+  - POST /api/keys
+
+Each endpoint type is tracked separately, so high usage of statistics endpoints won't affect your ability to use other API endpoints.
+
+### Configuration
+
+Rate limits can be configured in `sls.conf`:
+
+```
+srt {
+    # Rate limiting configuration (requests per minute)
+    rate_limit_api 30;      # For API endpoints (stream IDs)
+    rate_limit_stats 300;   # For statistics endpoints
+    rate_limit_config 20;   # For configuration endpoints (config, API keys)
+}
+```
 
 When rate limit is exceeded:
 ```json

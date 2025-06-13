@@ -52,6 +52,10 @@ char             record_hls_path_prefix[URL_MAX_LEN];
 int              http_port;
 char             cors_header[URL_MAX_LEN];
 char             database_path[URL_MAX_LEN];
+// Rate limiting configuration
+int              rate_limit_api;
+int              rate_limit_stats;
+int              rate_limit_config;
 SLS_CONF_DYNAMIC_DECLARE_END
 
 
@@ -68,7 +72,11 @@ SLS_SET_CONF(srt, int,    stat_post_interval,          "interval of statistic in
 SLS_SET_CONF(srt, string, record_hls_path_prefix,      "hls path prefix", 1, URL_MAX_LEN-1),
 SLS_SET_CONF(srt, int,    http_port,                   "rest api port", 1, 65535),
 SLS_SET_CONF(srt, string, cors_header,                 "cors header", 1, URL_MAX_LEN-1),
-SLS_SET_CONF(srt, string, database_path,               "sqlite database path", 1, URL_MAX_LEN-1)
+SLS_SET_CONF(srt, string, database_path,               "sqlite database path", 1, URL_MAX_LEN-1),
+// Rate limiting settings
+SLS_SET_CONF(srt, int,    rate_limit_api,             "rate limit for api endpoints (requests/minute)", 1, 1000),
+SLS_SET_CONF(srt, int,    rate_limit_stats,           "rate limit for stats endpoints (requests/minute)", 1, 1000),
+SLS_SET_CONF(srt, int,    rate_limit_config,          "rate limit for config endpoints (requests/minute)", 1, 1000)
 SLS_CONF_CMD_DYNAMIC_DECLARE_END
 
 

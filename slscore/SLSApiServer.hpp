@@ -68,8 +68,11 @@ private:
     std::unordered_map<std::string, RateLimitInfo> m_rate_limits;
     std::mutex m_rate_limit_mutex;
     
+    // Rate limit configuration (endpoint_type -> requests per minute)
+    std::unordered_map<std::string, int> m_rate_limit_config;
+    
     // Helper functions
-    bool checkRateLimit(const std::string& ip, int max_requests = 60, int window_seconds = 60);
+    bool checkRateLimit(const std::string& ip, const std::string& endpoint_type);
     bool authenticateRequest(const httplib::Request& req, httplib::Response& res, std::string& permissions);
     
     // Setup all API endpoints
