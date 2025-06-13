@@ -199,8 +199,7 @@ char* CSLSManager::find_publisher_by_player_key(char *player_key) {
     // First check stream ID database
     std::string publisher_id = CSLSDatabase::getInstance().getPublisherFromPlayer(player_key);
     if (!publisher_id.empty()) {
-        // Found in database - need to copy to static buffer
-        static char mapped_publisher[512];
+        static thread_local char mapped_publisher[512];
         strncpy(mapped_publisher, publisher_id.c_str(), sizeof(mapped_publisher) - 1);
         mapped_publisher[sizeof(mapped_publisher) - 1] = '\0';
         
