@@ -14,13 +14,13 @@ RUN apk update \
 RUN git clone https://github.com/onsmith/srt.git srt \
     && cd srt \
     && ./configure \
-    && make -j2 \
+    && make -j$(nproc) \
     && make install
 
 # Clone and build SRT Live Server
 COPY . /tmp/srt-live-server
 RUN cd srt-live-server \
-    && make -j2
+    && make -j$(nproc)
 
 # Runtime image
 FROM alpine:3.20
