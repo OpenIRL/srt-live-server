@@ -192,12 +192,21 @@ int main(int argc, char* argv[])
     
     // Initialize and start API server
     api_server = new CSLSApiServer();
-    if (!api_server->init(conf_srt, sls_manager)) {
-        sls_log(SLS_LOG_ERROR, "Failed to initialize API server");
-        delete api_server;
-        api_server = nullptr;
+    if (!api_server) {
+        sls_log(SLS_LOG_ERROR, "Failed to create API server instance");
     } else {
-        api_server->start();
+        if (!api_server->init(conf_srt, sls_manager)) {
+            sls_log(SLS_LOG_ERROR, "Failed to initialize API server");
+            delete api_server;
+            api_server = nullptr;
+        } else {
+            api_server->start();
+        }
+    }
+    
+    // Preload database cache after everything is initialized
+    if (!CSLSDatabase::getInstance().preloadCache()) {
+        sls_log(SLS_LOG_WARNING, "Failed to preload database cache, will load on first access");
     }
     
 	while(!b_exit)

@@ -42,14 +42,6 @@ CSLSDatabase::~CSLSDatabase() {
     close();
 }
 
-CSLSDatabase& CSLSDatabase::getInstance() {
-    std::lock_guard<std::mutex> lock(m_instance_mutex);
-    if (!m_instance) {
-        m_instance.reset(new CSLSDatabase());
-    }
-    return *m_instance;
-}
-
 bool CSLSDatabase::init(const std::string& db_path) {
     std::lock_guard<std::mutex> lock(m_db_mutex);
     
@@ -85,14 +77,19 @@ bool CSLSDatabase::init(const std::string& db_path) {
     
     insertDefaultApiKey();
     m_initialized = true;
-    
-    // Load all stream IDs into cache at startup
-    if (!loadStreamIdsIntoCache()) {
-        sls_log(SLS_LOG_WARNING, "[CSLSDatabase] Failed to load stream IDs into cache");
-    }
-    
+
     sls_log(SLS_LOG_INFO, "[CSLSDatabase] Database initialized at: %s with WAL mode enabled", db_path.c_str());
     return true;
+}
+
+bool CSLSDatabase::preloadCache() {
+    if (!m_initialized) {
+        sls_log(SLS_LOG_ERROR, "[CSLSDatabase] Cannot preload cache - database not initialized");
+        return false;
+    }
+    
+    // Load cache now
+    return loadStreamIdsCacheIfNeeded();
 }
 
 void CSLSDatabase::close() {
@@ -276,12 +273,15 @@ void CSLSDatabase::logAccess(const std::string& api_key, const std::string& endp
 }
 
 json CSLSDatabase::getStreamIds() {
-    std::lock_guard<std::mutex> lock(m_cache_mutex);
+    // Ensure cache is loaded
+    if (!loadStreamIdsCacheIfNeeded()) {
+        return json::array();
+    }
+    
+    // Read from cache with shared lock
+    std::shared_lock<std::shared_mutex> lock(m_cache_mutex);
     
     json result = json::array();
-    if (!m_initialized || !m_cache_loaded) return result;
-    
-    // Read from cache instead of database
     for (const auto& entry : m_stream_ids_cache) {
         json stream;
         stream["publisher"] = entry.publisher;
@@ -296,7 +296,7 @@ json CSLSDatabase::getStreamIds() {
 }
 
 bool CSLSDatabase::addStreamId(const std::string& publisher, const std::string& player, const std::string& description) {
-    std::lock_guard<std::mutex> lock(m_db_mutex);
+    std::lock_guard<std::mutex> db_lock(m_db_mutex);
     
     const char* sql = "INSERT INTO stream_ids (publisher, player, description, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
     sqlite3_stmt* stmt;
@@ -319,22 +319,28 @@ bool CSLSDatabase::addStreamId(const std::string& publisher, const std::string& 
         return false;
     }
     
-    // Update cache
+    // Update cache if it's loaded
     {
-        std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
-        StreamIdEntry entry;
-        entry.publisher = publisher;
-        entry.player = player;
-        entry.description = description;
-        m_stream_ids_cache.push_back(entry);
-        m_player_to_publisher_cache[player] = publisher;
+        std::unique_lock<std::shared_mutex> cache_lock(m_cache_mutex);
+        if (m_cache_loaded) {
+            // Add to cache
+            StreamIdEntry entry;
+            entry.publisher = publisher;
+            entry.player = player;
+            entry.description = description;
+            m_stream_ids_cache.push_back(entry);
+            m_player_to_publisher_cache[player] = publisher;
+            
+            sls_log(SLS_LOG_INFO, "[CSLSDatabase] Added stream ID to cache: player=%s, publisher=%s", 
+                    player.c_str(), publisher.c_str());
+        }
     }
     
     return true;
 }
 
 bool CSLSDatabase::deleteStreamId(const std::string& player) {
-    std::lock_guard<std::mutex> lock(m_db_mutex);
+    std::lock_guard<std::mutex> db_lock(m_db_mutex);
     
     if (!m_initialized) return false;
     
@@ -350,17 +356,20 @@ bool CSLSDatabase::deleteStreamId(const std::string& player) {
     bool success = rc == SQLITE_DONE && sqlite3_changes(m_db) > 0;
     
     if (success) {
-        // Update cache
-        std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
-        
-        // Remove from stream IDs cache
-        m_stream_ids_cache.erase(
-            std::remove_if(m_stream_ids_cache.begin(), m_stream_ids_cache.end(),
-                [&player](const StreamIdEntry& entry) { return entry.player == player; }),
-            m_stream_ids_cache.end());
-        
-        // Remove from player-to-publisher map
-        m_player_to_publisher_cache.erase(player);
+        // Update cache if it's loaded
+        std::unique_lock<std::shared_mutex> cache_lock(m_cache_mutex);
+        if (m_cache_loaded) {
+            // Remove from stream IDs cache
+            m_stream_ids_cache.erase(
+                std::remove_if(m_stream_ids_cache.begin(), m_stream_ids_cache.end(),
+                    [&player](const StreamIdEntry& entry) { return entry.player == player; }),
+                m_stream_ids_cache.end());
+            
+            // Remove from player-to-publisher map
+            m_player_to_publisher_cache.erase(player);
+            
+            sls_log(SLS_LOG_INFO, "[CSLSDatabase] Removed stream ID from cache: player=%s", player.c_str());
+        }
     }
     
     return success;
@@ -388,7 +397,13 @@ json CSLSDatabase::getStreamIdMapping() {
 }
 
 std::string CSLSDatabase::getPublisherFromPlayer(const std::string& player_id) {
-    std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
+    // Ensure cache is loaded
+    if (!loadStreamIdsCacheIfNeeded()) {
+        return "";
+    }
+    
+    // Read from cache with shared lock
+    std::shared_lock<std::shared_mutex> lock(m_cache_mutex);
     
     auto it = m_player_to_publisher_cache.find(player_id);
     if (it != m_player_to_publisher_cache.end()) {
@@ -455,9 +470,38 @@ bool CSLSDatabase::validateStreamId(const char* stream_id, bool is_publisher, ch
     }
 }
 
+// Thread-safe lazy loading of cache
+bool CSLSDatabase::loadStreamIdsCacheIfNeeded() const {
+    // First check with shared lock (fast path)
+    {
+        std::shared_lock<std::shared_mutex> read_lock(m_cache_mutex);
+        if (m_cache_loaded) {
+            return true;
+        }
+    }
+    
+    // Need to load cache - acquire exclusive lock
+    std::unique_lock<std::shared_mutex> write_lock(m_cache_mutex);
+    
+    // Double-check in case another thread loaded it
+    if (m_cache_loaded) {
+        return true;
+    }
+    
+    // Cast away const to call non-const method
+    // This is safe because we have exclusive lock and no other thread can access the data
+    CSLSDatabase* non_const_this = const_cast<CSLSDatabase*>(this);
+    return non_const_this->loadStreamIdsIntoCache();
+}
+
 bool CSLSDatabase::loadStreamIdsIntoCache() {
+    // Note: Caller must hold exclusive lock on m_cache_mutex
     std::lock_guard<std::mutex> db_lock(m_db_mutex);
-    std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
+    
+    if (!m_db || !m_initialized) {
+        sls_log(SLS_LOG_WARNING, "[CSLSDatabase] Database not initialized, cannot load cache");
+        return false;
+    }
     
     // Clear existing cache
     m_stream_ids_cache.clear();
@@ -467,6 +511,7 @@ bool CSLSDatabase::loadStreamIdsIntoCache() {
     sqlite3_stmt* stmt;
     
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sls_log(SLS_LOG_ERROR, "[CSLSDatabase] Failed to prepare SQL statement: %s", sqlite3_errmsg(m_db));
         return false;
     }
     
@@ -475,15 +520,18 @@ bool CSLSDatabase::loadStreamIdsIntoCache() {
         entry.publisher = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         entry.player = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
         const char* desc = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        if (desc) entry.description = desc;
+        if (desc) {
+            entry.description = desc;
+        }
         
         m_stream_ids_cache.push_back(entry);
         m_player_to_publisher_cache[entry.player] = entry.publisher;
     }
     
     sqlite3_finalize(stmt);
-    m_cache_loaded = true;
     
+    m_cache_loaded = true;
     sls_log(SLS_LOG_INFO, "[CSLSDatabase] Loaded %zu stream IDs into cache", m_stream_ids_cache.size());
+    
     return true;
 } 

@@ -32,6 +32,7 @@
 #include "json.hpp"
 #include <chrono>
 #include <unordered_map>
+#include <shared_mutex>
 
 using json = nlohmann::json;
 
@@ -47,6 +48,9 @@ public:
     // Initialize database with path
     bool init(const std::string& db_path);
     void close();
+    
+    // Preload cache after initialization (optional)
+    bool preloadCache();
     
     // Stream ID operations
     json getStreamIds();
@@ -65,9 +69,15 @@ public:
     
     // Get publisher from player ID with caching
     std::string getPublisherFromPlayer(const std::string& player_id);
-    
-    // Get singleton instance
-    static CSLSDatabase& getInstance();
+
+
+    // Singleton pattern
+    static CSLSDatabase& getInstance() {
+        if (!m_instance) {
+            m_instance = std::make_unique<CSLSDatabase>();
+        }
+        return *m_instance;
+    }
     
 private:
     sqlite3* m_db;
@@ -84,7 +94,7 @@ private:
     // Complete in-memory cache of all stream IDs
     std::vector<StreamIdEntry> m_stream_ids_cache;
     std::unordered_map<std::string, std::string> m_player_to_publisher_cache; // Quick lookup
-    std::mutex m_cache_mutex;
+    mutable std::shared_mutex m_cache_mutex;  // Read-Write lock for better concurrency
     bool m_cache_loaded;
     
     // Initialize database schema
@@ -92,6 +102,7 @@ private:
     void insertDefaultApiKey();
     
     // Load all stream IDs into cache
+    bool loadStreamIdsCacheIfNeeded() const;
     bool loadStreamIdsIntoCache();
     
     // Singleton

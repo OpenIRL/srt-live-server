@@ -36,6 +36,7 @@ RUN apk update \
 COPY --from=builder /tmp/srt-live-server/bin /usr/local/bin
 COPY --from=builder /usr/local/bin/srt-* /usr/local/bin
 COPY --from=builder /usr/local/lib/libsrt* /usr/local/lib
+COPY --from=builder /usr/include/httplib.h /usr/include/
 
 # copy configuration files
 COPY sls.conf /etc/sls/
