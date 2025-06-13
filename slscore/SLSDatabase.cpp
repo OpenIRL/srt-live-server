@@ -35,7 +35,7 @@
 std::unique_ptr<CSLSDatabase> CSLSDatabase::m_instance = nullptr;
 std::mutex CSLSDatabase::m_instance_mutex;
 
-CSLSDatabase::CSLSDatabase() : m_db(nullptr), m_initialized(false) {
+CSLSDatabase::CSLSDatabase() : m_db(nullptr), m_initialized(false), m_cache_loaded(false) {
 }
 
 CSLSDatabase::~CSLSDatabase() {
@@ -80,7 +80,12 @@ bool CSLSDatabase::init(const std::string& db_path) {
     insertDefaultApiKey();
     m_initialized = true;
     
-    sls_log(SLS_LOG_INFO, "[CSLSDatabase] Database initialized at: %s", db_path.c_str());
+    // Load all stream IDs into cache at startup
+    if (!loadStreamIdsIntoCache()) {
+        sls_log(SLS_LOG_WARNING, "[CSLSDatabase] Failed to load stream IDs into cache");
+    }
+    
+    sls_log(SLS_LOG_INFO, "[CSLSDatabase] Database initialized at: %s with WAL mode enabled", db_path.c_str());
     return true;
 }
 
@@ -265,26 +270,22 @@ void CSLSDatabase::logAccess(const std::string& api_key, const std::string& endp
 }
 
 json CSLSDatabase::getStreamIds() {
-    std::lock_guard<std::mutex> lock(m_db_mutex);
+    std::lock_guard<std::mutex> lock(m_cache_mutex);
     
     json result = json::array();
-    if (!m_initialized) return result;
+    if (!m_initialized || !m_cache_loaded) return result;
     
-    const char* sql = "SELECT publisher, player, description FROM stream_ids ORDER BY publisher, player";
-    sqlite3_stmt* stmt;
-    
-    sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr);
-    
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    // Read from cache instead of database
+    for (const auto& entry : m_stream_ids_cache) {
         json stream;
-        stream["publisher"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-        stream["player"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        const char* desc = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        if (desc) stream["description"] = desc;
+        stream["publisher"] = entry.publisher;
+        stream["player"] = entry.player;
+        if (!entry.description.empty()) {
+            stream["description"] = entry.description;
+        }
         result.push_back(stream);
     }
     
-    sqlite3_finalize(stmt);
     return result;
 }
 
@@ -312,6 +313,17 @@ bool CSLSDatabase::addStreamId(const std::string& publisher, const std::string& 
         return false;
     }
     
+    // Update cache
+    {
+        std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
+        StreamIdEntry entry;
+        entry.publisher = publisher;
+        entry.player = player;
+        entry.description = description;
+        m_stream_ids_cache.push_back(entry);
+        m_player_to_publisher_cache[player] = publisher;
+    }
+    
     return true;
 }
 
@@ -329,7 +341,23 @@ bool CSLSDatabase::deleteStreamId(const std::string& player) {
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     
-    return rc == SQLITE_DONE && sqlite3_changes(m_db) > 0;
+    bool success = rc == SQLITE_DONE && sqlite3_changes(m_db) > 0;
+    
+    if (success) {
+        // Update cache
+        std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
+        
+        // Remove from stream IDs cache
+        m_stream_ids_cache.erase(
+            std::remove_if(m_stream_ids_cache.begin(), m_stream_ids_cache.end(),
+                [&player](const StreamIdEntry& entry) { return entry.player == player; }),
+            m_stream_ids_cache.end());
+        
+        // Remove from player-to-publisher map
+        m_player_to_publisher_cache.erase(player);
+    }
+    
+    return success;
 }
 
 json CSLSDatabase::getStreamIdMapping() {
@@ -354,24 +382,14 @@ json CSLSDatabase::getStreamIdMapping() {
 }
 
 std::string CSLSDatabase::getPublisherFromPlayer(const std::string& player_id) {
-    std::lock_guard<std::mutex> lock(m_db_mutex);
+    std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
     
-    const char* sql = "SELECT publisher FROM stream_ids WHERE player = ?";
-    sqlite3_stmt* stmt;
-    
-    sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr);
-    sqlite3_bind_text(stmt, 1, player_id.c_str(), -1, SQLITE_STATIC);
-    
-    std::string publisher;
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char* pub = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-        if (pub) {
-            publisher = pub;
-        }
+    auto it = m_player_to_publisher_cache.find(player_id);
+    if (it != m_player_to_publisher_cache.end()) {
+        return it->second;
     }
     
-    sqlite3_finalize(stmt);
-    return publisher;
+    return "";
 }
 
 bool CSLSDatabase::createApiKey(const std::string& name, const std::string& permissions, std::string& out_key) {
@@ -429,4 +447,37 @@ bool CSLSDatabase::validateStreamId(const char* stream_id, bool is_publisher, ch
         sls_log(SLS_LOG_ERROR, "[CSLSDatabase] Error validating stream ID: %s", e.what());
         return true; // Allow in case of error
     }
+}
+
+bool CSLSDatabase::loadStreamIdsIntoCache() {
+    std::lock_guard<std::mutex> db_lock(m_db_mutex);
+    std::lock_guard<std::mutex> cache_lock(m_cache_mutex);
+    
+    // Clear existing cache
+    m_stream_ids_cache.clear();
+    m_player_to_publisher_cache.clear();
+    
+    const char* sql = "SELECT publisher, player, description FROM stream_ids ORDER BY publisher, player";
+    sqlite3_stmt* stmt;
+    
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        StreamIdEntry entry;
+        entry.publisher = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        entry.player = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        const char* desc = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        if (desc) entry.description = desc;
+        
+        m_stream_ids_cache.push_back(entry);
+        m_player_to_publisher_cache[entry.player] = entry.publisher;
+    }
+    
+    sqlite3_finalize(stmt);
+    m_cache_loaded = true;
+    
+    sls_log(SLS_LOG_INFO, "[CSLSDatabase] Loaded %zu stream IDs into cache", m_stream_ids_cache.size());
+    return true;
 } 

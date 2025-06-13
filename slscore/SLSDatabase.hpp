@@ -30,6 +30,8 @@
 #include <mutex>
 #include <sqlite3.h>
 #include "json.hpp"
+#include <chrono>
+#include <unordered_map>
 
 using json = nlohmann::json;
 
@@ -61,7 +63,7 @@ public:
     void logAccess(const std::string& api_key, const std::string& endpoint, 
                    const std::string& method, const std::string& ip, int response_code);
     
-    // Get publisher from player ID
+    // Get publisher from player ID with caching
     std::string getPublisherFromPlayer(const std::string& player_id);
     
     // Get singleton instance
@@ -72,9 +74,25 @@ private:
     std::mutex m_db_mutex;
     bool m_initialized;
     
+    // In-memory cache for all stream IDs
+    struct StreamIdEntry {
+        std::string publisher;
+        std::string player;
+        std::string description;
+    };
+    
+    // Complete in-memory cache of all stream IDs
+    std::vector<StreamIdEntry> m_stream_ids_cache;
+    std::unordered_map<std::string, std::string> m_player_to_publisher_cache; // Quick lookup
+    std::mutex m_cache_mutex;
+    bool m_cache_loaded;
+    
     // Initialize database schema
     bool initSchema();
     void insertDefaultApiKey();
+    
+    // Load all stream IDs into cache
+    bool loadStreamIdsIntoCache();
     
     // Singleton
     static std::unique_ptr<CSLSDatabase> m_instance;
