@@ -137,6 +137,7 @@ Get real-time statistics for a specific publisher (using player ID).
       "bitrate": 16363,
       "buffer": 1995,
       "dropped_pkts": 45,
+      "latency": 2000,
       "rtt": 30.2,
       "uptime": 3600
     }

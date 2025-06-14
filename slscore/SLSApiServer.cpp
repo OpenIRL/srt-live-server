@@ -408,7 +408,9 @@ void CSLSApiServer::handleConfig(const httplib::Request& req, httplib::Response&
     config["listen_publisher"] = 4001;  // These are hardcoded as defaults in server conf
     config["listen_player"] = 4000;
     config["http_port"] = m_conf ? m_conf->http_port : 8080;
-    config["latency"] = 2000; // default latency
+    
+    config["latency_min"] = 200; // default minimum latency
+    config["latency_max"] = 5000; // default maximum latency
     
     response["data"] = config;
     

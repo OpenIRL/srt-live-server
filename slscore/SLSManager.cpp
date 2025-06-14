@@ -294,6 +294,7 @@ json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
     ret["buffer"]         = stats.msRcvBuf;
     ret["bitrate"]          = role->get_bitrate(); // in kbps
     ret["uptime"]           = role->get_uptime(); // in seconds
+    ret["latency"]          = role->get_latency(); // in ms
     return ret;
 }
 

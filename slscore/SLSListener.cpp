@@ -269,13 +269,25 @@ int CSLSListener::start()
     sls_log(SLS_LOG_INFO, "[%p]CSLSListener::start, libsrt_setup ok on port %d for %s.", 
             this, m_port, m_is_publisher_listener ? "publisher" : "player");
 
-    int latency = ((sls_conf_server_t*)m_conf)->latency;
-    if (latency > 0) {
-        ret = m_srt->libsrt_setsockopt(SRTO_LATENCY, "SRTO_LATENCY",  &latency, sizeof (latency));
-        if (SLS_OK != ret) {
-            sls_log(SLS_LOG_INFO, "[%p]CSLSListener::start, libsrt_setsockopt latency=%d failure.", this, latency);
-            return ret;
+    // Only publisher listeners handle latency settings
+    if (m_is_publisher_listener) {
+        // Set minimum latency on listener socket if configured
+        // This enforces the minimum but clients cannot choose less
+        if (server_conf->latency_min > 0) {
+            ret = m_srt->libsrt_setsockopt(SRTO_LATENCY, "SRTO_LATENCY", &server_conf->latency_min, sizeof(server_conf->latency_min));
+            if (ret != 0) {
+                sls_log(SLS_LOG_WARNING, "[%p]CSLSListener::start, failed to set minimum latency=%d ms on publisher listener socket.", 
+                        this, server_conf->latency_min);
+            } else {
+                sls_log(SLS_LOG_INFO, "[%p]CSLSListener::start, set minimum latency=%d ms on publisher listener socket.", 
+                        this, server_conf->latency_min);
+            }
+        } else {
+            sls_log(SLS_LOG_INFO, "[%p]CSLSListener::start, not setting latency on publisher listener socket to allow full client control.", this);
         }
+    } else {
+        // Player listeners don't set latency - it's determined by network conditions
+        sls_log(SLS_LOG_INFO, "[%p]CSLSListener::start, player listener - latency determined by network, not configured.", this);
     }
 
     ret = m_srt->libsrt_listen(m_back_log);
@@ -358,6 +370,35 @@ int CSLSListener::handler()
         return client_count;
     }
     sls_log(SLS_LOG_INFO, "[%p]CSLSListener::handler, new client[%s:%d], fd=%d.", this, peer_name, peer_port, fd_client);
+
+    // Read the negotiated latency after accept
+    sls_conf_server_t* conf_server = (sls_conf_server_t*)m_conf;
+    int negotiated_latency = 0;
+    int latency_len = sizeof(negotiated_latency);
+    
+    // Try to read the negotiated latency
+    if (0 != srt->libsrt_getsockopt(SRTO_LATENCY, "SRTO_LATENCY", &negotiated_latency, &latency_len)) {
+        // If we can't read the latency, use configured minimum or SRT default
+        negotiated_latency = conf_server->latency_min > 0 ? conf_server->latency_min : 120;
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSListener::handler, [%s:%d], failed to read latency, using fallback %d ms.", 
+                this, peer_name, peer_port, negotiated_latency);
+    } else {
+        // Successfully read latency
+        const char* role = m_is_publisher_listener ? "publisher" : "player";
+        sls_log(SLS_LOG_INFO, "[%p]CSLSListener::handler, [%s:%d], %s latency=%d ms.", 
+                this, peer_name, peer_port, role, negotiated_latency);
+        
+        // Enforce maximum latency for both publishers and players
+        if (conf_server->latency_max > 0 && negotiated_latency > conf_server->latency_max) {
+            sls_log(SLS_LOG_ERROR, "[%p]CSLSListener::handler, [%s:%d], rejecting %s: latency %d ms exceeds maximum %d ms.", 
+                    this, peer_name, peer_port, role, negotiated_latency, conf_server->latency_max);
+            srt->libsrt_close();
+            delete srt;
+            return client_count;
+        }
+    }
+    
+    int final_latency = negotiated_latency;
 
     if (0 != srt->libsrt_getsockopt(SRTO_STREAMID, "SRTO_STREAMID", &sid, &sid_size)) {
         sls_log(SLS_LOG_ERROR, "[%p]CSLSListener::handler, [%s:%d], fd=%d, get streamid info failed.",
@@ -476,6 +517,7 @@ int CSLSListener::handler()
 		player->set_idle_streams_timeout(m_idle_streams_timeout_role);
 		player->set_srt(srt);
 		player->set_map_data(key_stream_name, m_map_data);
+		player->set_latency(final_latency);
 		//stat info
 	    sprintf(tmp, SLS_PLAYER_STAT_INFO_BASE,
 	    		m_port, player->get_role_name(), stream_name, sid, peer_name, peer_port, cur_time);
@@ -509,6 +551,7 @@ int CSLSListener::handler()
         pub->set_conf(server_conf);
         pub->init();
         pub->set_idle_streams_timeout(m_idle_streams_timeout_role);
+        pub->set_latency(final_latency);
         //stat info
         sprintf(tmp, SLS_PUBLISHER_STAT_INFO_BASE,
                 m_port, pub->get_role_name(), stream_name, sid, peer_name, peer_port, cur_time);

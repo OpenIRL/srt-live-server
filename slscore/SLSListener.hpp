@@ -43,7 +43,8 @@ SLS_CONF_DYNAMIC_DECLARE_BEGIN(server)
 int              listen_player;        // Port for players
 int              listen_publisher;     // Port for publishers
 int              backlog;
-int              latency;
+int              latency_min;          // Minimum allowed latency (ms)
+int              latency_max;          // Maximum allowed latency (ms)
 int              idle_streams_timeout;//unit s; -1: unlimited
 char             on_event_url[URL_MAX_LEN];
 char             stream_ids_file[URL_MAX_LEN]; // Path to stream IDs JSON file
@@ -60,7 +61,8 @@ SLS_CONF_CMD_DYNAMIC_DECLARE_BEGIN(server)
 SLS_SET_CONF(server, int,    listen_player,        "listen port for players", 1, 65535),
 SLS_SET_CONF(server, int,    listen_publisher,     "listen port for publishers", 1, 65535),
 SLS_SET_CONF(server, int,    backlog,              "how many sockets may be allowed to wait until they are accepted", 1,    1024),
-SLS_SET_CONF(server, int,    latency,              "latency.", 1, 5000),
+SLS_SET_CONF(server, int,    latency_min,          "minimum allowed latency (ms)", 0, 5000),
+SLS_SET_CONF(server, int,    latency_max,          "maximum allowed latency (ms)", 0, 10000),
 SLS_SET_CONF(server, int,    idle_streams_timeout, "players idle timeout when no publisher" , -1, 86400),
 SLS_SET_CONF(server, string, on_event_url,         "on connect/close http url", 1,    URL_MAX_LEN-1),
 SLS_SET_CONF(server, string, stream_ids_file,      "path to stream IDs JSON file", 1, URL_MAX_LEN-1),
