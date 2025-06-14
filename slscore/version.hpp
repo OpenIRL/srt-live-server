@@ -25,7 +25,7 @@
 #define _SLS_VERSION_HPP_
 
 #define SLS_MAJOR_VERSION "1"
-#define SLS_MIN_VERSION "6"
+#define SLS_MIN_VERSION "5"
 #define SLS_TEST_VERSION "0"
 
 #endif // _SLS_VERSION_HPP_ 
