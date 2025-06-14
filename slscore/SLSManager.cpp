@@ -338,12 +338,12 @@ int CSLSManager::stop()
 
     std::list<CSLSGroup *>::iterator it_worker;
     for ( it_worker = m_workers.begin(); it_worker != m_workers.end(); it_worker++) {
-    	CSLSGroup *p = *it_worker;
-    	if (p) {
-    		p->stop();
-    		p->uninit_epoll();
-    		delete p;
-    		p = NULL;
+    	CSLSGroup *worker = *it_worker;
+    	if (worker) {
+    		worker->stop();
+    		worker->uninit_epoll();
+    		delete worker;
+    		worker = NULL;
     	}
     }
     m_workers.clear();
