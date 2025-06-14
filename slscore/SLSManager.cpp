@@ -202,9 +202,7 @@ char* CSLSManager::find_publisher_by_player_key(char *player_key) {
         static thread_local char mapped_publisher[512];
         strncpy(mapped_publisher, publisher_id.c_str(), sizeof(mapped_publisher) - 1);
         mapped_publisher[sizeof(mapped_publisher) - 1] = '\0';
-        
-        sls_log(SLS_LOG_INFO, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' mapped to publisher '%s'",
-                this, player_key, mapped_publisher);
+
         return mapped_publisher;
     }
     
@@ -290,15 +288,10 @@ json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
     SRT_TRACEBSTATS stats;
     role->get_statistics(&stats, clear);
     // Interval
-    ret["pktRcvLoss"]       = stats.pktRcvLoss;
-    ret["pktRcvDrop"]       = stats.pktRcvDrop;
-    ret["bytesRcvLoss"]     = stats.byteRcvLoss;
-    ret["bytesRcvDrop"]     = stats.byteRcvDrop;
-    ret["mbpsRecvRate"]     = stats.mbpsRecvRate;
+    ret["dropped_pkts"]     = stats.pktRcvDrop;
     // Instant
     ret["rtt"]              = stats.msRTT;
-    ret["msRcvBuf"]         = stats.msRcvBuf;
-    ret["mbpsBandwidth"]    = stats.mbpsBandwidth;
+    ret["buffer"]         = stats.msRcvBuf;
     ret["bitrate"]          = role->get_bitrate(); // in kbps
     ret["uptime"]           = role->get_uptime(); // in seconds
     return ret;

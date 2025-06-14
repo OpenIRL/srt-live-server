@@ -132,17 +132,16 @@ Get real-time statistics for a specific publisher (using player ID).
 **Response:**
 ```json
 {
-  "status": "ok",
   "publishers": {
     "live": {
-      "bitrate": 2500000,
-      "uptime": 3600,
-      "rtt": 5.2,
-      "mbpsRecvRate": 2.5,
-      "pktRcvLoss": 0,
-      "pktRcvDrop": 0
+      "bitrate": 16363,
+      "buffer": 1995,
+      "dropped_pkts": 45,
+      "rtt": 30.2,
+      "uptime": 3600
     }
-  }
+  },
+  "status": "ok"
 }
 ```
 
