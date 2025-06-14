@@ -135,11 +135,16 @@ Get real-time statistics for a specific publisher (using player ID).
   "publishers": {
     "live": {
       "bitrate": 16363,
-      "buffer": 1995,
-      "dropped_pkts": 45,
-      "latency": 2000,
+      "bytes_rcv_drop": 0,
+      "bytes_rcv_loss": 0,
+      "mbps_bandwidth": 2.1,
+      "mbps_recv_rate": 2.4,
+      "ms_rcv_buf": 1984,
+      "pkt_rcv_drop": 0,
+      "pkt_rcv_loss": 0,
       "rtt": 30.2,
-      "uptime": 3600
+      "uptime": 3600,
+      "latency": 2000
     }
   },
   "status": "ok"
