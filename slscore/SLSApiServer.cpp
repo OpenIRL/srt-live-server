@@ -168,7 +168,7 @@ void CSLSApiServer::setupEndpoints() {
     });
     
     // Statistics endpoint
-    m_server.Get(R"(/stats/([^/]+))", [this](const httplib::Request& req, httplib::Response& res) {
+    m_server.Get(R"(/stats/(.+))", [this](const httplib::Request& req, httplib::Response& res) {
         handleStats(req, res);
     });
     
