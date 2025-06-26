@@ -163,7 +163,7 @@ void CSLSApiServer::setupEndpoints() {
         handleStreamIdsPost(req, res);
     });
     
-    m_server.Delete(R"(/api/stream-ids/([^/]+))", [this](const httplib::Request& req, httplib::Response& res) {
+    m_server.Delete(R"(/api/stream-ids/(.+))", [this](const httplib::Request& req, httplib::Response& res) {
         handleStreamIdsDelete(req, res);
     });
     
