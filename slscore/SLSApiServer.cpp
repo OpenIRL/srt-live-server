@@ -172,11 +172,6 @@ void CSLSApiServer::setupEndpoints() {
         handleStats(req, res);
     });
     
-    // Configuration endpoint
-    m_server.Get("/api/config", [this](const httplib::Request& req, httplib::Response& res) {
-        handleConfig(req, res);
-    });
-    
     // API key management endpoint
     m_server.Post("/api/keys", [this](const httplib::Request& req, httplib::Response& res) {
         handleApiKeys(req, res);
@@ -379,44 +374,6 @@ void CSLSApiServer::handleStats(const httplib::Request& req, httplib::Response& 
     }
 
     res.set_content(ret.dump(), "application/json");
-}
-
-void CSLSApiServer::handleConfig(const httplib::Request& req, httplib::Response& res) {
-    setCorsHeaders(res);
-    
-    // Rate limiting
-    if (!checkRateLimit(req.remote_addr, "config")) {
-        res.status = 429;
-        json error;
-        error["status"] = "error";
-        error["message"] = "Rate limit exceeded";
-        res.set_content(error.dump(), "application/json");
-        return;
-    }
-    
-    // Authentication
-    std::string permissions;
-    if (!authenticateRequest(req, res, permissions)) {
-        return;
-    }
-    
-    json response;
-    response["status"] = "success";
-    json config;
-    
-    // Get configuration from conf structure
-    config["listen_publisher"] = 4001;  // These are hardcoded as defaults in server conf
-    config["listen_player"] = 4000;
-    config["http_port"] = m_conf ? m_conf->http_port : 8080;
-    
-    config["latency_min"] = 200; // default minimum latency
-    config["latency_max"] = 5000; // default maximum latency
-    
-    response["data"] = config;
-    
-    res.set_content(response.dump(), "application/json");
-    CSLSDatabase::getInstance().logAccess(req.get_header_value("Authorization").substr(7), 
-                         req.path, req.method, req.remote_addr, 200);
 }
 
 void CSLSApiServer::handleApiKeys(const httplib::Request& req, httplib::Response& res) {
