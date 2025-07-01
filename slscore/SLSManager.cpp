@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -25,13 +24,20 @@
 
 #include <errno.h>
 #include <string.h>
+#include <fstream>
 
 #include "common.hpp"
 #include "SLSManager.hpp"
 #include "SLSLog.hpp"
 #include "SLSListener.hpp"
 #include "SLSPublisher.hpp"
-#include "json.hpp"
+#include "SLSMapData.hpp"
+#include "SLSRelayManager.hpp"
+#include "SLSPullerManager.hpp"
+#include "SLSMapRelay.hpp"
+#include "SLSPusherManager.hpp"
+#include "SLSMapPublisher.hpp"
+#include "SLSDatabase.hpp"
 
 using json = nlohmann::json;
 
@@ -102,26 +108,55 @@ int CSLSManager::start()
 
     //create listeners according config, delete by groups
     for (i = 0; i < m_server_count; i ++) {
-    	CSLSListener * p = new CSLSListener();//deleted by groups
-    	p->set_role_list(m_list_role);
-        p->set_conf(conf);
-        p->set_record_hls_path_prefix(conf_srt->record_hls_path_prefix);
-        p->set_map_data("", &m_map_data[i]);
-        p->set_map_publisher(&m_map_publisher[i]);
-        p->set_map_puller(&m_map_puller[i]);
-        p->set_map_pusher(&m_map_pusher[i]);
-    	if (p->init() != SLS_OK) {
-            sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p->init failed.", this);
-            return SLS_ERROR;
-    	}
-        if (p->start() != SLS_OK) {
-            sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p->start failed.", this);
+        // Check if both ports are configured
+        if (conf->listen_publisher <= 0 || conf->listen_player <= 0) {
+            sls_log(SLS_LOG_ERROR, "[%p]CSLSManager::start, both listen_publisher and listen_player must be configured.", this);
             return SLS_ERROR;
         }
-    	m_servers.push_back(p);
+        
+        // Create publisher listener
+        CSLSListener * p_pub = new CSLSListener();//deleted by groups
+        p_pub->set_role_list(m_list_role);
+        p_pub->set_conf(conf);
+        p_pub->set_record_hls_path_prefix(conf_srt->record_hls_path_prefix);
+        p_pub->set_map_data("", &m_map_data[i]);
+        p_pub->set_map_publisher(&m_map_publisher[i]);
+        p_pub->set_map_puller(&m_map_puller[i]);
+        p_pub->set_map_pusher(&m_map_pusher[i]);
+        p_pub->set_listener_type(true); // Publisher listener
+        if (p_pub->init() != SLS_OK) {
+            sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p_pub->init failed.", this);
+            return SLS_ERROR;
+        }
+        if (p_pub->start() != SLS_OK) {
+            sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p_pub->start failed.", this);
+            return SLS_ERROR;
+        }
+        m_servers.push_back(p_pub);
+        
+        // Create player listener
+        CSLSListener * p_play = new CSLSListener();//deleted by groups
+        p_play->set_role_list(m_list_role);
+        p_play->set_conf(conf);
+        p_play->set_record_hls_path_prefix(conf_srt->record_hls_path_prefix);
+        p_play->set_map_data("", &m_map_data[i]);
+        p_play->set_map_publisher(&m_map_publisher[i]);
+        p_play->set_map_puller(&m_map_puller[i]);
+        p_play->set_map_pusher(&m_map_pusher[i]);
+        p_play->set_listener_type(false); // Player listener
+        if (p_play->init() != SLS_OK) {
+            sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p_play->init failed.", this);
+            return SLS_ERROR;
+        }
+        if (p_play->start() != SLS_OK) {
+            sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p_play->start failed.", this);
+            return SLS_ERROR;
+        }
+        m_servers.push_back(p_play);
+        
     	conf = (sls_conf_server_t *)conf->sibling;
     }
-    sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, init listeners, count=%d.", this, m_server_count);
+    sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, init listeners, count=%d.", this, m_servers.size());
 
     //create groups
 
@@ -160,28 +195,90 @@ int CSLSManager::start()
 
 }
 
-json CSLSManager::generate_json_for_publisher(std::string publisherName, int clear) {
-    json ret;
-    ret["status"] = "ok";
-    ret["publishers"] = json::object();
+char* CSLSManager::find_publisher_by_player_key(char *player_key) {
+    // First check stream ID database
+    std::string publisher_id = CSLSDatabase::getInstance().getPublisherFromPlayer(player_key);
+    if (!publisher_id.empty()) {
+        static thread_local char mapped_publisher[512];
+        strncpy(mapped_publisher, publisher_id.c_str(), sizeof(mapped_publisher) - 1);
+        mapped_publisher[sizeof(mapped_publisher) - 1] = '\0';
 
-    if (publisherName.empty()) {
-        ret["message"] = "no publisher specified";
+        return mapped_publisher;
+    }
+    
+    sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' not found in database",
+            this, player_key);
+    
+    // If not found in database, check if it's a direct publisher key
+    CSLSRole* role = nullptr;
+    for (int i = 0; i < m_server_count; i++) {
+        role = m_map_publisher[i].get_publisher(player_key);
+        if (role != nullptr) {
+            break;
+        }
+    }
+    
+    if (role != NULL) {
+        sls_log(SLS_LOG_INFO, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' is a publisher key",
+                this, player_key);
+        return player_key;
+    }
+    
+    sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, no publisher found for player key '%s'",
+            this, player_key);
+    return NULL;
+}
+
+json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) {
+    json ret;
+    ret["status"] = "error";
+
+    // Validate input
+    if (playerKey.empty()) {
+        ret["message"] = "Player key is required";
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::generate_json_for_publisher, empty player key provided", this);
         return ret;
     }
 
+    // Validate player key and get mapped publisher key
+    char* mapped_publisher = find_publisher_by_player_key(const_cast<char*>(playerKey.c_str()));
+    if (mapped_publisher == NULL) {
+        ret["message"] = "Invalid player key";
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::generate_json_for_publisher, invalid player key: %s", 
+                this, playerKey.c_str());
+        return ret;
+    }
+    
+    std::string publisher_key(mapped_publisher);
+
+    ret["publishers"] = json::object();
+    ret["status"] = "ok";
+
+    // Search for active publisher
+    CSLSRole *role = nullptr;
     for (int i = 0; i < m_server_count; i++) {
         CSLSMapPublisher *publisher_map = &m_map_publisher[i];
-        CSLSRole *role = publisher_map->get_publisher(publisherName);
+        role = publisher_map->get_publisher(publisher_key.c_str());
+        if (role != nullptr) {
+            break;
+        }
+    }
 
-        if (role == NULL) continue;
-
-        ret["status"] = "ok";
-        ret["publishers"][publisherName] = create_json_stats_for_publisher(role, clear);
-        ret.erase("message");
+    if (role == nullptr) {
+        ret["message"] = "Publisher is currently not streaming";
+        sls_log(SLS_LOG_DEBUG, "[%p]CSLSManager::generate_json_for_publisher, publisher not found: %s (mapped from player key: %s)",
+                this, publisher_key.c_str(), playerKey.c_str());
         return ret;
     }
 
+    // Success - return publisher statistics
+    ret["publishers"] = json::object();
+    ret["publishers"]["live"] = create_json_stats_for_publisher(role, clear);
+    ret.erase("message");
+    
+    sls_log(SLS_LOG_DEBUG, "[%p]CSLSManager::generate_json_for_publisher, returning stats for publisher: %s (player key: %s)", 
+            this, publisher_key.c_str(), playerKey.c_str());
+    
     return ret;
 }
 
@@ -202,6 +299,7 @@ json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
     ret["mbpsBandwidth"]    = stats.mbpsBandwidth;
     ret["bitrate"]          = role->get_bitrate(); // in kbps
     ret["uptime"]           = role->get_uptime(); // in seconds
+    ret["latency"]          = role->get_latency(); // in ms
     return ret;
 }
 
@@ -239,12 +337,12 @@ int CSLSManager::stop()
 
     std::list<CSLSGroup *>::iterator it_worker;
     for ( it_worker = m_workers.begin(); it_worker != m_workers.end(); it_worker++) {
-    	CSLSGroup *p = *it_worker;
-    	if (p) {
-    		p->stop();
-    		p->uninit_epoll();
-    		delete p;
-    		p = NULL;
+    	CSLSGroup *worker = *it_worker;
+    	if (worker) {
+    		worker->stop();
+    		worker->uninit_epoll();
+    		delete worker;
+    		worker = NULL;
     	}
     }
     m_workers.clear();

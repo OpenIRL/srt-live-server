@@ -1,7 +1,7 @@
 /**
  * The MIT License (MIT)
  *
- * Copyright (c) 2019-2020 Edward.Wu
+ * Copyright (c) 2019-2025 Edward.Wu
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -21,37 +21,11 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef _SLS_VERSION_HPP_
+#define _SLS_VERSION_HPP_
 
-#ifndef _SLSPublisher_INCLUDE_
-#define _SLSPublisher_INCLUDE_
+#define SLS_MAJOR_VERSION "1"
+#define SLS_MIN_VERSION "5"
+#define SLS_TEST_VERSION "0"
 
-#include <list>
-
-#include "SLSRole.hpp"
-#include "SLSRoleList.hpp"
-#include "SLSMapPublisher.hpp"
-
-// App configuration has been moved to server level
-
-/**
- * CSLSPublisher
- */
-class CSLSPublisher: public CSLSRole
-{
-public :
-    CSLSPublisher();
-    virtual ~CSLSPublisher();
-
-    void set_map_publisher(CSLSMapPublisher * publisher);
-
-    virtual int init();
-    virtual int uninit();
-
-    virtual int  handler();
-private:
-    CSLSMapPublisher  * m_map_publisher;
-
-};
-
-
-#endif
+#endif // _SLS_VERSION_HPP_ 
