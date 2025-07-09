@@ -128,8 +128,24 @@ Get real-time statistics for a specific publisher (using player ID).
 **Parameters:**
 - `player_id` (path) - The player ID associated with the publisher
 - `reset` (query, optional) - Reset statistics after retrieval
+- `legacy` (query, optional) - Use legacy format with detailed information (set to "1")
 
-**Response:**
+**Response (Default Format):**
+```json
+{
+  "publisher": {
+    "bitrate": 16363,
+    "buffer": 1995,
+    "dropped_pkts": 45,
+    "rtt": 30.2,
+    "uptime": 3600,
+    "latency": 2000
+  },
+  "status": "ok"
+}
+```
+
+**Response (Legacy Format with `legacy=1`):**
 ```json
 {
   "publishers": {

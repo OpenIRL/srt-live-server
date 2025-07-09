@@ -229,7 +229,7 @@ char* CSLSManager::find_publisher_by_player_key(char *player_key) {
     return NULL;
 }
 
-json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) {
+json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear, bool legacy) {
     json ret;
     ret["status"] = "error";
 
@@ -251,7 +251,10 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
     
     std::string publisher_key(mapped_publisher);
 
-    ret["publishers"] = json::object();
+    if (legacy) {
+        ret["publishers"] = json::object();
+    }
+
     ret["status"] = "ok";
 
     // Search for active publisher
@@ -271,19 +274,21 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear) 
         return ret;
     }
 
-    // Success - return publisher statistics
-    ret["publishers"] = json::object();
-    ret["publishers"]["live"] = create_json_stats_for_publisher(role, clear);
+    // Success - return publisher statistics in requested format
+    if (legacy) {
+        ret["publishers"]["live"] = create_legacy_json_stats_for_publisher(role, clear);
+    } else {
+        ret["publisher"] = create_json_stats_for_publisher(role, clear);
+    }
     ret.erase("message");
     
-    sls_log(SLS_LOG_DEBUG, "[%p]CSLSManager::generate_json_for_publisher, returning stats for publisher: %s (player key: %s)", 
-            this, publisher_key.c_str(), playerKey.c_str());
+    sls_log(SLS_LOG_DEBUG, "[%p]CSLSManager::generate_json_for_publisher, returning %s stats for publisher: %s (player key: %s)", 
+            this, legacy ? "legacy" : "modern", publisher_key.c_str(), playerKey.c_str());
     
     return ret;
 }
 
-
-json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
+json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int clear) {
     json ret = json::object();
     SRT_TRACEBSTATS stats;
     role->get_statistics(&stats, clear);
@@ -302,6 +307,22 @@ json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
     ret["latency"]          = role->get_latency(); // in ms
     return ret;
 }
+
+json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
+    json ret = json::object();
+    SRT_TRACEBSTATS stats;
+    role->get_statistics(&stats, clear);
+    // Interval
+    ret["dropped_pkts"]     = stats.pktRcvDrop;
+    // Instant
+    ret["rtt"]              = stats.msRTT;
+    ret["buffer"]           = stats.msRcvBuf;
+    ret["bitrate"]          = role->get_bitrate(); // in kbps
+    ret["uptime"]           = role->get_uptime(); // in seconds
+    ret["latency"]          = role->get_latency(); // in ms
+    return ret;
+}
+
 
 int CSLSManager::single_thread_handler()
 {

@@ -368,7 +368,12 @@ void CSLSApiServer::handleStats(const httplib::Request& req, httplib::Response& 
         return;
     }
 
-    ret = m_sls_manager->generate_json_for_publisher(req.matches[1], req.has_param("reset") ? 1 : 0);
+    // Check if legacy format is requested
+    bool legacy_format = req.has_param("legacy") && req.get_param_value("legacy") == "1";
+    
+    // Use the updated method with legacy parameter
+    ret = m_sls_manager->generate_json_for_publisher(req.matches[1], req.has_param("reset") ? 1 : 0, legacy_format);
+
     if (ret["status"] == "error") {
         res.status = 404;
     }
