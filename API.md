@@ -130,7 +130,7 @@ Get real-time statistics for a specific publisher (using player ID).
 - `reset` (query, optional) - Reset statistics after retrieval
 - `legacy` (query, optional) - Use legacy format with detailed information (set to "1")
 
-**Response (Default Format):**
+**Response:**
 ```json
 {
   "publisher": {
@@ -145,7 +145,9 @@ Get real-time statistics for a specific publisher (using player ID).
 }
 ```
 
-**Response (Legacy Format with `legacy=1`):**
+<details>
+<summary>Legacy Format with `legacy=1`</summary>
+
 ```json
 {
   "publishers": {
@@ -166,28 +168,7 @@ Get real-time statistics for a specific publisher (using player ID).
   "status": "ok"
 }
 ```
-
-### Configuration
-
-#### Get Server Configuration
-
-```
-GET /api/config
-Authorization: Bearer <API_KEY>
-```
-
-**Response:**
-```json
-{
-  "status": "success",
-  "data": {
-    "listen_publisher": 4001,
-    "listen_player": 4000,
-    "http_port": 8080,
-    "latency": 2000
-  }
-}
-```
+</details>
 
 ### API Key Management
 
@@ -231,7 +212,6 @@ The API implements rate limiting to prevent abuse. Each endpoint type has its ow
 - **Statistics** (`stats`): 300 requests per minute per IP (configurable via `rate_limit_stats`)
   - GET /stats/{player_id}
 - **Configuration** (`config`): 20 requests per minute per IP (configurable via `rate_limit_config`)
-  - GET /api/config
   - POST /api/keys
 
 Each endpoint type is tracked separately, so high usage of statistics endpoints won't affect your ability to use other API endpoints.
