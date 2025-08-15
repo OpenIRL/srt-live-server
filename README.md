@@ -11,7 +11,7 @@ SRT Live Server (sls) is a low latency streaming server that is using SRT (Secur
 - **SQLite Database**: Persistent storage for stream IDs and configuration
 - **Access Logging**: Complete audit trail of API usage
 - **Docker Support**: Easy deployment with docker-compose
-- **Auto-reload**: Configuration reload without service interruption
+- **Dynamic end-to-end Latency**: Latency can be determined by the client
 
 ## Quick Start with Docker
 
