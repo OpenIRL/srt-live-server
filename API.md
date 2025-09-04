@@ -115,6 +115,46 @@ Authorization: Bearer <API_KEY>
 }
 ```
 
+### Publisher Management
+
+#### Disconnect Publisher
+
+Disconnect an active publishing operation.
+
+```
+DELETE /api/disconnect/{player_id}
+Authorization: Bearer <API_KEY>
+```
+
+**Required Permissions:** `admin` or `write`
+
+**Parameters:**
+- `player_id` (path) - The player ID associated with the publisher to disconnect
+
+**Response:**
+- `200 OK` - Publisher disconnected successfully
+  ```json
+  {
+    "status": "success",
+    "message": "Publisher disconnected successfully"
+  }
+  ```
+- `401 Unauthorized` - Invalid or missing API key
+- `403 Forbidden` - Insufficient permissions
+- `404 Not Found` - Publisher not found or not currently streaming
+  ```json
+  {
+    "status": "error",
+    "message": "Publisher not found or not currently streaming"
+  }
+  ```
+
+**Example:**
+```bash
+curl -X DELETE -H "Authorization: Bearer YOUR_API_KEY" \
+  http://hostname:8080/api/disconnect/live_stream
+```
+
 ### Statistics
 
 #### Get Publisher Statistics
@@ -209,6 +249,7 @@ The API implements rate limiting to prevent abuse. Each endpoint type has its ow
   - GET /api/stream-ids
   - POST /api/stream-ids
   - DELETE /api/stream-ids/{player_id}
+  - DELETE /api/disconnect/{player_id}
 - **Statistics** (`stats`): 300 requests per minute per IP (configurable via `rate_limit_stats`)
   - GET /stats/{player_id}
 - **Configuration** (`config`): 20 requests per minute per IP (configurable via `rate_limit_config`)
@@ -319,6 +360,10 @@ curl -X POST -H "Authorization: Bearer YOUR_API_KEY" \
 # Get statistics
 curl -H "Authorization: Bearer YOUR_API_KEY" \
   http://hostname:8080/stats/live_stream
+
+# Disconnect publisher
+curl -X DELETE -H "Authorization: Bearer YOUR_API_KEY" \
+  http://hostname:8080/api/disconnect/live_stream
 ```
 
 ### Python
@@ -342,6 +387,9 @@ data = {
     "description": "Main studio feed"
 }
 response = requests.post(f"{BASE_URL}/api/stream-ids", json=data, headers=headers)
+
+# Disconnect publisher
+response = requests.delete(f"{BASE_URL}/api/disconnect/live_stream", headers=headers)
 ```
 
 ### JavaScript/Fetch
@@ -371,6 +419,16 @@ fetch(`${BASE_URL}/api/stream-ids`, {
         player: 'live_stream',
         description: 'Main studio feed'
     })
+})
+.then(response => response.json())
+.then(data => console.log(data));
+
+// Disconnect publisher
+fetch(`${BASE_URL}/api/disconnect/live_stream`, {
+    method: 'DELETE',
+    headers: {
+        'Authorization': `Bearer ${API_KEY}`
+    }
 })
 .then(response => response.json())
 .then(data => console.log(data));
