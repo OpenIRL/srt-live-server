@@ -288,6 +288,43 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear, 
     return ret;
 }
 
+bool CSLSManager::disconnect_publisher(const std::string& player_key) {
+    // Find the publisher key using the player key
+    char* publisher_key = find_publisher_by_player_key(const_cast<char*>(player_key.c_str()));
+    if (!publisher_key) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, publisher not found for player key: %s", this, player_key.c_str());
+        return false;
+    }
+    
+    // Search for the publisher in all server instances
+    CSLSRole *role = nullptr;
+    for (int i = 0; i < m_server_count; i++) {
+        CSLSMapPublisher *publisher_map = &m_map_publisher[i];
+        role = publisher_map->get_publisher(publisher_key);
+        if (role != nullptr) {
+            break;
+        }
+    }
+    
+    if (role == nullptr) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, publisher role not found: %s (mapped from player key: %s)", 
+                this, publisher_key, player_key.c_str());
+        return false;
+    }
+    
+    // Disconnect the publisher
+    sls_log(SLS_LOG_INFO, "[%p]CSLSManager::disconnect_publisher, disconnecting publisher: %s (player key: %s)", 
+            this, publisher_key, player_key.c_str());
+    
+    // Call on_close to notify any HTTP callbacks
+    role->on_close();
+    
+    // Mark the role as invalid to trigger cleanup in the next cycle
+    role->invalid_srt();
+    
+    return true;
+}
+
 json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int clear) {
     json ret = json::object();
     SRT_TRACEBSTATS stats;
