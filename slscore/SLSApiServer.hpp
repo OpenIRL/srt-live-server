@@ -86,6 +86,7 @@ private:
     void handleStats(const httplib::Request& req, httplib::Response& res);
     void handleConfig(const httplib::Request& req, httplib::Response& res);
     void handleApiKeys(const httplib::Request& req, httplib::Response& res);
+    void handleDisconnectPublisher(const httplib::Request& req, httplib::Response& res);
 };
 
 #endif // _SLS_API_SERVER_HPP_ 

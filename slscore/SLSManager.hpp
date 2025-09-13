@@ -100,7 +100,7 @@ public :
 	json generate_json_for_publisher(std::string publisherName, int clear, bool legacy = false);
 	json create_legacy_json_stats_for_publisher(CSLSRole *role, int clear);
 	json create_json_stats_for_publisher(CSLSRole *role, int clear);
-	char* find_publisher_by_player_key(char *player_key);
+	bool disconnect_publisher(const std::string& publisher_id);
 
 	void get_stat_info(std::string &info);
 	static int  stat_client_callback(void *p, HTTP_CALLBACK_TYPE type, void *v, void* context);
