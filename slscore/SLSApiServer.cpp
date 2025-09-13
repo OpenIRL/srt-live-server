@@ -477,7 +477,7 @@ void CSLSApiServer::handleDisconnectPublisher(const httplib::Request& req, httpl
         return;
     }
     
-    std::string player_id = req.matches[1];
+    std::string publisher_id = req.matches[1];
     
     if (!m_sls_manager) {
         res.status = 500;
@@ -489,7 +489,7 @@ void CSLSApiServer::handleDisconnectPublisher(const httplib::Request& req, httpl
     }
     
     // Attempt to disconnect the publisher
-    if (m_sls_manager->disconnect_publisher(player_id)) {
+    if (m_sls_manager->disconnect_publisher(publisher_id)) {
         json response;
         response["status"] = "success";
         response["message"] = "Publisher disconnected successfully";
