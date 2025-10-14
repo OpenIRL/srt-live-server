@@ -120,7 +120,7 @@ Authorization: Bearer <API_KEY>
 
 #### Disconnect Publisher
 
-Disconnect an active publishing operation by publisher ID.
+Disconnect an active publishing operation by publisher or player ID.
 
 ```
 DELETE /api/disconnect/{publisher_id}
@@ -130,7 +130,7 @@ Authorization: Bearer <API_KEY>
 **Required Permissions:** `admin` or `write`
 
 **Parameters:**
-- `publisher_id` (path) - The publisher ID to disconnect
+- `publisher_id` (path) - Publisher ID **or** player ID associated with the stream
 
 **Response:**
 - `200 OK` - Publisher disconnected successfully
@@ -153,7 +153,7 @@ Authorization: Bearer <API_KEY>
 **Example:**
 ```bash
 curl -X DELETE -H "Authorization: Bearer YOUR_API_KEY" \
-  http://hostname:8080/api/disconnect/publisher_123
+  http://hostname:8080/api/disconnect/live_stream
 ```
 
 ### Statistics
