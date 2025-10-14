@@ -166,12 +166,25 @@ vector<string> sls_conf_string_split(const string& str, const string& delim)
 
 string& trim(string &s)
 {
-    if (s.empty())
-    {
+    if (s.empty()) {
         return s;
     }
-    s.erase(0,s.find_first_not_of(" "));
-    s.erase(s.find_last_not_of(" ") + 1);
+
+    const char *whitespace = " \t\r\n";
+
+    size_t start = s.find_first_not_of(whitespace);
+    if (start == string::npos) {
+        s.clear();
+        return s;
+    }
+    if (start > 0) {
+        s.erase(0, start);
+    }
+
+    size_t end = s.find_last_not_of(whitespace);
+    if (end != string::npos && end + 1 < s.size()) {
+        s.erase(end + 1);
+    }
     return s;
 }
 
@@ -306,7 +319,7 @@ int sls_conf_parse_block(ifstream& ifs, int& line, sls_conf_base_t * b, bool& ch
             }
         } else if (line_end_flag == "}" ) {
             if (str_line != line_end_flag) {
-                sls_log(SLS_LOG_ERROR, "line:%d=‘%s’, end indicator ‘}’ with more info.", str_line.c_str(), line);
+                sls_log(SLS_LOG_ERROR, "line:%d=‘%s’, end indicator ‘}’ with more info.", line, str_line.c_str());
                 ret = SLS_ERROR;
                 break;
             }
@@ -316,7 +329,7 @@ int sls_conf_parse_block(ifstream& ifs, int& line, sls_conf_base_t * b, bool& ch
             break;
 
         } else {
-            sls_log(SLS_LOG_ERROR, "line:%d='%s', invalid end flag, except ';', '{', '}',", str_line.c_str(), line);
+            sls_log(SLS_LOG_ERROR, "line:%d='%s', invalid end flag, except ';', '{', '}',", line, str_line.c_str());
             ret = SLS_ERROR;
             break;
         }
