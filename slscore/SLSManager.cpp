@@ -245,22 +245,22 @@ json CSLSManager::generate_json_for_publisher(std::string publisher_id, int clea
     return ret;
 }
 
-bool CSLSManager::disconnect_publisher(const std::string& player_key) {
-    // Search for the publisher in all server instances using publisher_id
+bool CSLSManager::disconnect_publisher(const std::string& publisher_key) {
+    // Search for the publisher in all server instances using publisher_key
     CSLSRole *role = nullptr;
     for (int i = 0; i < m_server_count; i++) {
         CSLSMapPublisher *publisher_map = &m_map_publisher[i];
-        role = publisher_map->get_publisher(player_key); // player_key artık publisher_id olarak kullanılıyor
+        role = publisher_map->get_publisher(publisher_key); // publisher_key is used as publisher_id
         if (role != nullptr) {
             break;
         }
     }
     if (role == nullptr) {
-        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, publisher not found for publisher_id: %s", this, player_key.c_str());
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, publisher not found for publisher_key: %s", this, publisher_key.c_str());
         return false;
     }
     // Disconnect the publisher
-    sls_log(SLS_LOG_INFO, "[%p]CSLSManager::disconnect_publisher, disconnecting publisher: %s", this, player_key.c_str());
+    sls_log(SLS_LOG_INFO, "[%p]CSLSManager::disconnect_publisher, disconnecting publisher: %s", this, publisher_key.c_str());
     // Call on_close to notify any HTTP callbacks
     role->on_close();
     // Mark the role as invalid to trigger cleanup in the next cycle
