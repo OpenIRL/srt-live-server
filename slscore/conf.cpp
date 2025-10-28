@@ -1,4 +1,3 @@
-
 /**
  * The MIT License (MIT)
  *
@@ -164,14 +163,36 @@ vector<string> sls_conf_string_split(const string& str, const string& delim)
     return res;
 }
 
+/**
+ * @brief Trim leading and trailing whitespace from a string in place.
+ *
+ * Removes space, tab, carriage return and newline characters from the start
+ * and end of the provided string.
+ *
+ * @param s String to trim; modified in place.
+ * @return std::string& Reference to the trimmed string `s`.
+ */
 string& trim(string &s)
 {
-    if (s.empty())
-    {
+    if (s.empty()) {
         return s;
     }
-    s.erase(0,s.find_first_not_of(" "));
-    s.erase(s.find_last_not_of(" ") + 1);
+
+    const char *whitespace = " \t\r\n";
+
+    size_t start = s.find_first_not_of(whitespace);
+    if (start == string::npos) {
+        s.clear();
+        return s;
+    }
+    if (start > 0) {
+        s.erase(0, start);
+    }
+
+    size_t end = s.find_last_not_of(whitespace);
+    if (end != string::npos && end + 1 < s.size()) {
+        s.erase(end + 1);
+    }
     return s;
 }
 
@@ -202,8 +223,21 @@ sls_conf_base_t * sls_conf_create_block_by_name(string n, sls_runtime_conf_t *& 
     return p;
 
 }
-//#define new_conf(n, i)\
-//        sls_conf_##n conf_##n##_##i##_info = new sls_conf_##n ;
+/**
+ * Parse a configuration block (including nested blocks) from the given input stream and populate the configuration tree.
+ *
+ * Reads lines from ifs starting at the current stream position, updates line with the current line number, and
+ * interprets directives, block openings ("{"), and block closings ("}") to fill or extend the configuration node b
+ * and its descendants according to definitions in p_runtime.
+ *
+ * @param ifs Input file stream positioned at the start of the block contents to parse.
+ * @param line Reference to the current line number; incremented as lines are read and used in error reporting.
+ * @param b Pointer to the current configuration block into which parsed directives or child/sibling blocks are stored.
+ * @param child When true, the next created block is attached as b->child; when false, attached as b->sibling. Updated by the parser.
+ * @param p_runtime Runtime configuration descriptor providing command definitions and factory functions for blocks.
+ * @param brackets_layers Current nesting depth of braces; used to track recursion depth.
+ * @return int SLS_OK when the block (and its nested contents) are successfully parsed; SLS_ERROR on any parse error.
+ */
 int sls_conf_parse_block(ifstream& ifs, int& line, sls_conf_base_t * b, bool& child, sls_runtime_conf_t * p_runtime, int brackets_layers)
 {
     int ret = SLS_ERROR;
@@ -306,7 +340,7 @@ int sls_conf_parse_block(ifstream& ifs, int& line, sls_conf_base_t * b, bool& ch
             }
         } else if (line_end_flag == "}" ) {
             if (str_line != line_end_flag) {
-                sls_log(SLS_LOG_ERROR, "line:%d=‘%s’, end indicator ‘}’ with more info.", str_line.c_str(), line);
+                sls_log(SLS_LOG_ERROR, "line:%d=‘%s’, end indicator ‘}’ with more info.", line, str_line.c_str());
                 ret = SLS_ERROR;
                 break;
             }
@@ -316,7 +350,7 @@ int sls_conf_parse_block(ifstream& ifs, int& line, sls_conf_base_t * b, bool& ch
             break;
 
         } else {
-            sls_log(SLS_LOG_ERROR, "line:%d='%s', invalid end flag, except ';', '{', '}',", str_line.c_str(), line);
+            sls_log(SLS_LOG_ERROR, "line:%d='%s', invalid end flag, except ';', '{', '}',", line, str_line.c_str());
             ret = SLS_ERROR;
             break;
         }
@@ -448,4 +482,3 @@ int sls_parse_argv(int argc, char * argv[], sls_opt_t * sls_opt, sls_conf_cmd_t 
     }
     return ret;
 }
-

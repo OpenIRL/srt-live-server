@@ -51,6 +51,13 @@ SLS_CONF_DYNAMIC_IMPLEMENT(srt)
  */
 #define DEFAULT_GROUP 1
 
+/**
+ * @brief Initializes CSLSManager with default member values.
+ *
+ * Sets the worker thread count to DEFAULT_GROUP, server count to 1,
+ * and initializes pointer members (role list, single group, and per-server maps)
+ * to NULL.
+ */
 CSLSManager::CSLSManager()
 {
     m_worker_threads = DEFAULT_GROUP;
@@ -61,14 +68,28 @@ CSLSManager::CSLSManager()
     m_map_data       = NULL;
     m_map_publisher  = NULL;
     m_map_puller     = NULL;
-    m_map_pusher     = NULL;
 
+    m_map_pusher     = NULL;
 }
 
+/**
+ * @brief Releases resources used by CSLSManager.
+ *
+ * Performs cleanup when a CSLSManager instance is destroyed.
+ */
 CSLSManager::~CSLSManager()
 {
 }
 
+/**
+ * @brief Initialize the manager: load configuration, create listeners and worker groups.
+ *
+ * Reads SRT configuration, applies log settings, allocates per-server maps and a shared role list,
+ * creates and starts publisher and player listeners for each configured server, and initializes
+ * worker group(s) (either a single group or multiple worker threads) with epoll and worker settings.
+ *
+ * @return int 0 on success; SLS_ERROR on configuration or initialization failure.
+ */
 int CSLSManager::start()
 {
 	int ret = 0;
@@ -195,7 +216,26 @@ int CSLSManager::start()
 
 }
 
+/**
+ * @brief Resolve a publisher key corresponding to a given player key.
+ *
+ * Checks the internal stream database for a mapping from the provided player key
+ * to a publisher ID; if none is found, treats the player key as a potential
+ * publisher key and searches active publishers across servers.
+ *
+ * @param player_key Null-terminated C string containing the player key to resolve.
+ *                   Must not be NULL or empty.
+ * @return char* Pointer to a null-terminated publisher key if found, `NULL` otherwise.
+ *               If the mapping is returned from the database, the pointer refers
+ *               to thread-local storage; if the provided player_key is itself a
+ *               publisher key, the original player_key pointer is returned.
+ */
 char* CSLSManager::find_publisher_by_player_key(char *player_key) {
+    if (player_key == NULL || strlen(player_key) == 0) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, empty player key provided", this);
+        return NULL;
+    }
+
     // First check stream ID database
     std::string publisher_id = CSLSDatabase::getInstance().getPublisherFromPlayer(player_key);
     if (!publisher_id.empty()) {
@@ -205,10 +245,10 @@ char* CSLSManager::find_publisher_by_player_key(char *player_key) {
 
         return mapped_publisher;
     }
-    
+
     sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' not found in database",
             this, player_key);
-    
+
     // If not found in database, check if it's a direct publisher key
     CSLSRole* role = nullptr;
     for (int i = 0; i < m_server_count; i++) {
@@ -217,18 +257,32 @@ char* CSLSManager::find_publisher_by_player_key(char *player_key) {
             break;
         }
     }
-    
+
     if (role != NULL) {
         sls_log(SLS_LOG_INFO, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' is a publisher key",
                 this, player_key);
         return player_key;
     }
-    
+
     sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, no publisher found for player key '%s'",
             this, player_key);
     return NULL;
 }
 
+/**
+ * @brief Produce a JSON object describing the publisher associated with the given player key.
+ *
+ * Looks up the publisher mapped to the provided player key and returns its current statistics
+ * in either legacy or modern format, or an error message if the key is invalid or the
+ * publisher is not currently streaming.
+ *
+ * @param playerKey Player key used to resolve the mapped publisher; must not be empty.
+ * @param clear If non-zero, clear the publisher's collected statistics after reading.
+ * @param legacy If true, return statistics under a legacy `publishers` object; otherwise use `publisher`.
+ * @return json A JSON object with a `status` field set to `"ok"` on success or `"error"` on failure.
+ *              On success includes either `publisher` (modern) or `publishers` (legacy) containing stats.
+ *              On error includes a `message` explaining the failure.
+ */
 json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear, bool legacy) {
     json ret;
     ret["status"] = "error";
@@ -288,6 +342,74 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear, 
     return ret;
 }
 
+/**
+ * @brief Disconnects the publisher associated with the given player or publisher key.
+ *
+ * Resolves the provided key (player or publisher key) to the active publisher instance,
+ * calls the publisher's on_close callback, and marks it invalid so it will be cleaned up.
+ *
+ * @param key Player key or publisher key used to locate the publisher; must not be empty.
+ * @return true if a publisher was found and scheduled for disconnection, false otherwise.
+ */
+bool CSLSManager::disconnect_publisher(const std::string& key) {
+    if (key.empty()) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, empty key provided", this);
+        return false;
+    }
+
+    char* mapped_publisher = find_publisher_by_player_key(const_cast<char*>(key.c_str()));
+    if (mapped_publisher == NULL) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, unable to resolve publisher for key: %s", this, key.c_str());
+        return false;
+    }
+
+    std::string publisher_key(mapped_publisher);
+
+    // Search for the publisher in all server instances using resolved publisher key
+    CSLSRole *role = nullptr;
+    for (int i = 0; i < m_server_count; i++) {
+        CSLSMapPublisher *publisher_map = &m_map_publisher[i];
+        role = publisher_map->get_publisher(publisher_key.c_str());
+        if (role != nullptr) {
+            break;
+        }
+    }
+    if (role == nullptr) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, publisher not found for key: %s (resolved publisher: %s)",
+                this, key.c_str(), publisher_key.c_str());
+        return false;
+    }
+
+    // Disconnect the publisher
+    sls_log(SLS_LOG_INFO, "[%p]CSLSManager::disconnect_publisher, disconnecting publisher: %s (requested key: %s)",
+            this, publisher_key.c_str(), key.c_str());
+    // Call on_close to notify any HTTP callbacks
+    role->on_close();
+    // Mark the role as invalid to trigger cleanup in the next cycle
+    role->invalid_srt();
+    return true;
+}
+
+/**
+ * @brief Build a legacy-formatted JSON object containing publisher statistics.
+ *
+ * Produces a JSON object with interval and instant metrics for the given publisher role.
+ *
+ * @param role Pointer to the publisher role from which statistics are retrieved.
+ * @param clear If non-zero, clear the role's internal counters after reading.
+ * @return json JSON object containing fields:
+ *         - pktRcvLoss: packet receive loss count (interval)
+ *         - pktRcvDrop: packet receive drop count (interval)
+ *         - bytesRcvLoss: bytes lost while receiving (interval)
+ *         - bytesRcvDrop: bytes dropped while receiving (interval)
+ *         - mbpsRecvRate: receive rate in Mbps (interval)
+ *         - rtt: round-trip time in milliseconds (instant)
+ *         - msRcvBuf: receive buffer size in milliseconds (instant)
+ *         - mbpsBandwidth: measured bandwidth in Mbps (instant)
+ *         - bitrate: current bitrate in kbps (instant)
+ *         - uptime: publisher uptime in seconds (instant)
+ *         - latency: publisher latency in milliseconds (instant)
+ */
 json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int clear) {
     json ret = json::object();
     SRT_TRACEBSTATS stats;
@@ -477,6 +599,5 @@ int  CSLSManager::stat_client_callback(void *p, HTTP_CALLBACK_TYPE type, void *v
 	}
 	return SLS_OK;
 }
-
 
 

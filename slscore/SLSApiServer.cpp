@@ -142,6 +142,24 @@ bool CSLSApiServer::authenticateRequest(const httplib::Request& req, httplib::Re
     return true;
 }
 
+/**
+ * @brief Register HTTP routes and associate them with their request handlers.
+ *
+ * Configures the server's endpoints including health check, CORS preflight,
+ * stream IDs (list, create, delete), stats retrieval, API key creation, and
+ * publisher disconnect.
+ *
+ * @details
+ * The following routes are registered:
+ * - GET /health
+ * - OPTIONS .* (CORS preflight)
+ * - GET /api/stream-ids
+ * - POST /api/stream-ids
+ * - DELETE /api/stream-ids/{id}
+ * - GET /stats/{publisher}
+ * - POST /api/keys
+ * - DELETE /api/disconnect/{publisher}
+ */
 void CSLSApiServer::setupEndpoints() {
     // Health check endpoint (no auth required)
     m_server.Get("/health", [this](const httplib::Request& req, httplib::Response& res) {
@@ -176,8 +194,22 @@ void CSLSApiServer::setupEndpoints() {
     m_server.Post("/api/keys", [this](const httplib::Request& req, httplib::Response& res) {
         handleApiKeys(req, res);
     });
+    
+    // Publisher disconnect endpoint
+    m_server.Delete(R"(/api/disconnect/(.+))", [this](const httplib::Request& req, httplib::Response& res) {
+        handleDisconnectPublisher(req, res);
+    });
 }
 
+/**
+ * @brief Responds to health-check requests with basic service information.
+ *
+ * Sets CORS headers and returns a JSON body containing service status, name,
+ * and version.
+ *
+ * @param req Incoming HTTP request.
+ * @param res Outgoing HTTP response (will be populated with JSON content).
+ */
 void CSLSApiServer::handleHealth(const httplib::Request& req, httplib::Response& res) {
     setCorsHeaders(res);
     
@@ -381,6 +413,25 @@ void CSLSApiServer::handleStats(const httplib::Request& req, httplib::Response& 
     res.set_content(ret.dump(), "application/json");
 }
 
+/**
+ * @brief Handle creation of a new API key via the /api/keys endpoint.
+ *
+ * Validates rate limits for configuration endpoints, requires a caller with
+ * admin permissions, accepts a JSON body with optional `name` and
+ * `permissions` fields (defaults: "New API Key" and "read"), and creates a new
+ * API key in the database. On success, returns a JSON object containing the
+ * newly generated `api_key` and a message advising to save it securely.
+ *
+ * Possible response statuses:
+ * - 200: API key created successfully (response contains `api_key` and `message`).
+ * - 400: Invalid JSON body.
+ * - 403: Caller lacks admin permissions.
+ * - 429: Rate limit exceeded for configuration endpoints.
+ * - 500: Failed to create API key.
+ *
+ * @param req Incoming HTTP request (expects JSON body with optional `name` and `permissions`).
+ * @param res HTTP response to populate with JSON result and appropriate status code.
+ */
 void CSLSApiServer::handleApiKeys(const httplib::Request& req, httplib::Response& res) {
     setCorsHeaders(res);
     
@@ -439,5 +490,85 @@ void CSLSApiServer::handleApiKeys(const httplib::Request& req, httplib::Response
         error["status"] = "error";
         error["message"] = "Failed to create API key";
         res.set_content(error.dump(), "application/json");
+    }
+}
+
+/**
+ * @brief Handles DELETE /api/disconnect/{publisher} requests to force-disconnect a publisher.
+ *
+ * Validates rate limits and API key authentication, requires `admin` or `write` permissions,
+ * invokes the SLS manager to disconnect the specified publisher, and returns a JSON response
+ * indicating success or the appropriate error.
+ *
+ * @param req Incoming HTTP request; expects the publisher id in the first route match (req.matches[1])
+ *            and an Authorization header with a Bearer API key.
+ * @param res HTTP response object which will be populated with a JSON body and appropriate status code.
+ *
+ * Possible response status codes:
+ * - 200: Publisher disconnected successfully.
+ * - 403: Authentication succeeded but caller lacks `admin` or `write` permissions.
+ * - 404: Publisher not found or not currently streaming.
+ * - 429: Rate limit exceeded for the API endpoint.
+ * - 500: SLS manager is not available.
+ */
+void CSLSApiServer::handleDisconnectPublisher(const httplib::Request& req, httplib::Response& res) {
+    setCorsHeaders(res);
+    
+    // Rate limiting
+    if (!checkRateLimit(req.remote_addr, "api")) {
+        res.status = 429;
+        json error;
+        error["status"] = "error";
+        error["message"] = "Rate limit exceeded";
+        res.set_content(error.dump(), "application/json");
+        return;
+    }
+    
+    // Authentication with admin or write permissions check
+    std::string permissions;
+    if (!authenticateRequest(req, res, permissions)) {
+        return;
+    }
+    
+    if (permissions != "admin" && permissions != "write") {
+        res.status = 403;
+        json error;
+        error["status"] = "error";
+        error["message"] = "Admin or write permissions required";
+        res.set_content(error.dump(), "application/json");
+        CSLSDatabase::getInstance().logAccess(req.get_header_value("Authorization").substr(7), 
+                             req.path, req.method, req.remote_addr, 403);
+        return;
+    }
+    
+    std::string publisher_id = req.matches[1];
+    
+    if (!m_sls_manager) {
+        res.status = 500;
+        json error;
+        error["status"] = "error";
+        error["message"] = "SLS manager not available";
+        res.set_content(error.dump(), "application/json");
+        return;
+    }
+    
+    // Attempt to disconnect the publisher
+    if (m_sls_manager->disconnect_publisher(publisher_id)) {
+        json response;
+        response["status"] = "success";
+        response["message"] = "Publisher disconnected successfully";
+        res.set_content(response.dump(), "application/json");
+        
+        CSLSDatabase::getInstance().logAccess(req.get_header_value("Authorization").substr(7), 
+                             req.path, req.method, req.remote_addr, 200);
+    } else {
+        res.status = 404;
+        json error;
+        error["status"] = "error";
+        error["message"] = "Publisher not found or not currently streaming";
+        res.set_content(error.dump(), "application/json");
+        
+        CSLSDatabase::getInstance().logAccess(req.get_header_value("Authorization").substr(7), 
+                             req.path, req.method, req.remote_addr, 404);
     }
 } 
