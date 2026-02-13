@@ -103,6 +103,7 @@ CSLSListener::CSLSListener()
     memset(m_http_url_role, 0, URL_MAX_LEN);
     memset(m_record_hls_path_prefix, 0, URL_MAX_LEN);
     m_is_publisher_listener = false;
+    m_is_srtla_listener = false;
     // Default path, will be overridden by configuration
     strcpy(m_stream_id_json_path, "/etc/sls/streamids.json");
 
@@ -160,6 +161,14 @@ void CSLSListener::set_listener_type(bool is_publisher)
         sprintf(m_role_name, "listener-publisher");
     } else {
         sprintf(m_role_name, "listener-player");
+    }
+}
+
+void CSLSListener::set_srtla_mode(bool is_srtla)
+{
+    m_is_srtla_listener = is_srtla;
+    if (is_srtla) {
+        sprintf(m_role_name, "listener-publisher-srtla");
     }
 }
 
@@ -247,9 +256,11 @@ int CSLSListener::start()
     if (NULL == m_srt)
         m_srt = new CSLSSrt();
 
-    // Use different ports for publisher and player listeners
+    // Use different ports for publisher, SRTLA publisher, and player listeners
     sls_conf_server_t* server_conf = (sls_conf_server_t*)m_conf;
-    if (m_is_publisher_listener) {
+    if (m_is_srtla_listener) {
+        m_port = server_conf->listen_publisher_srtla;
+    } else if (m_is_publisher_listener) {
         m_port = server_conf->listen_publisher;
     } else {
         m_port = server_conf->listen_player;
@@ -261,13 +272,14 @@ int CSLSListener::start()
         return SLS_ERROR;
     }
     
-    ret = m_srt->libsrt_setup(m_port);
+    ret = m_srt->libsrt_setup(m_port, m_is_srtla_listener);
     if (SLS_OK != ret) {
         sls_log(SLS_LOG_ERROR, "[%p]CSLSListener::start, libsrt_setup failure.", this);
         return ret;
     }
-    sls_log(SLS_LOG_INFO, "[%p]CSLSListener::start, libsrt_setup ok on port %d for %s.", 
-            this, m_port, m_is_publisher_listener ? "publisher" : "player");
+    sls_log(SLS_LOG_INFO, "[%p]CSLSListener::start, libsrt_setup ok on port %d for %s%s.",
+            this, m_port, m_is_publisher_listener ? "publisher" : "player",
+            m_is_srtla_listener ? " (SRTLA)" : "");
 
     // Only publisher listeners handle latency settings
     if (m_is_publisher_listener) {

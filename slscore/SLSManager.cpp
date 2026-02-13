@@ -133,7 +133,30 @@ int CSLSManager::start()
             return SLS_ERROR;
         }
         m_servers.push_back(p_pub);
-        
+
+        // Create SRTLA publisher listener if configured
+        if (conf->listen_publisher_srtla > 0) {
+            CSLSListener * p_srtla = new CSLSListener();
+            p_srtla->set_role_list(m_list_role);
+            p_srtla->set_conf(conf);
+            p_srtla->set_record_hls_path_prefix(conf_srt->record_hls_path_prefix);
+            p_srtla->set_map_data("", &m_map_data[i]);
+            p_srtla->set_map_publisher(&m_map_publisher[i]);
+            p_srtla->set_map_puller(&m_map_puller[i]);
+            p_srtla->set_map_pusher(&m_map_pusher[i]);
+            p_srtla->set_listener_type(true); // Publisher listener
+            p_srtla->set_srtla_mode(true);    // Enable SRTLA patches
+            if (p_srtla->init() != SLS_OK) {
+                sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p_srtla->init failed.", this);
+                return SLS_ERROR;
+            }
+            if (p_srtla->start() != SLS_OK) {
+                sls_log(SLS_LOG_INFO, "[%p]CSLSManager::start, p_srtla->start failed.", this);
+                return SLS_ERROR;
+            }
+            m_servers.push_back(p_srtla);
+        }
+
         // Create player listener
         CSLSListener * p_play = new CSLSListener();//deleted by groups
         p_play->set_role_list(m_list_role);

@@ -42,6 +42,7 @@
 SLS_CONF_DYNAMIC_DECLARE_BEGIN(server)
 int              listen_player;        // Port for players
 int              listen_publisher;     // Port for publishers
+int              listen_publisher_srtla; // Port for SRTLA publishers (enables SRTLA patches)
 int              backlog;
 int              latency_min;          // Minimum allowed latency (ms)
 int              latency_max;          // Maximum allowed latency (ms)
@@ -60,6 +61,7 @@ SLS_CONF_DYNAMIC_DECLARE_END
 SLS_CONF_CMD_DYNAMIC_DECLARE_BEGIN(server)
 SLS_SET_CONF(server, int,    listen_player,        "listen port for players", 1, 65535),
 SLS_SET_CONF(server, int,    listen_publisher,     "listen port for publishers", 1, 65535),
+SLS_SET_CONF(server, int,    listen_publisher_srtla, "listen port for SRTLA publishers", 1, 65535),
 SLS_SET_CONF(server, int,    backlog,              "how many sockets may be allowed to wait until they are accepted", 1,    1024),
 SLS_SET_CONF(server, int,    latency_min,          "minimum allowed latency (ms)", 0, 5000),
 SLS_SET_CONF(server, int,    latency_max,          "maximum allowed latency (ms)", 0, 10000),
@@ -97,6 +99,7 @@ public :
     void set_map_pusher(CSLSMapRelay *map_puller);
     void set_record_hls_path_prefix(char *path);
     void set_listener_type(bool is_publisher);
+    void set_srtla_mode(bool is_srtla);
 
     virtual std::string get_stat_info();
 
@@ -113,6 +116,7 @@ private:
     char                m_http_url_role[URL_MAX_LEN];
     char                m_record_hls_path_prefix[URL_MAX_LEN];
     bool                m_is_publisher_listener;
+    bool                m_is_srtla_listener;
     char                m_stream_id_json_path[URL_MAX_LEN];
 
     int  init_conf_app();

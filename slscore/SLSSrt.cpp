@@ -144,7 +144,7 @@ void CSLSSrt::libsrt_set_context(SRTContext *sc)
     m_sc = *sc;
 }
 
-int CSLSSrt::libsrt_setup(int port)
+int CSLSSrt::libsrt_setup(int port, bool srtla_patches)
 {
     struct addrinfo hints = { 0 }, *ai;
     int fd = -1;
@@ -203,6 +203,14 @@ int CSLSSrt::libsrt_setup(int port)
     if (s->reuse) {
         if (srt_setsockopt(fd, SOL_SOCKET, SRTO_REUSEADDR, &s->reuse, sizeof(s->reuse)))
             sls_log(SLS_LOG_WARNING, "[%p]CSLSSrt::libsrt_setup, setsockopt(SRTO_REUSEADDR) failed.", this);
+    }
+
+    if (srtla_patches) {
+        int srtla_enable = 1;
+        if (srt_setsockopt(fd, SOL_SOCKET, SRTO_SRTLAPATCHES, &srtla_enable, sizeof(srtla_enable)))
+            sls_log(SLS_LOG_WARNING, "[%p]CSLSSrt::libsrt_setup, setsockopt(SRTO_SRTLAPATCHES) failed.", this);
+        else
+            sls_log(SLS_LOG_INFO, "[%p]CSLSSrt::libsrt_setup, SRTLA patches enabled on port %d.", this, port);
     }
 
     ret = srt_bind(fd, ai->ai_addr, ai->ai_addrlen);
