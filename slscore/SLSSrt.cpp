@@ -184,10 +184,22 @@ int CSLSSrt::libsrt_setup(int port, bool srtla_patches)
 */
 
     int enable = 0;
-    int lossmaxttlvalue = 40;
-
     srt_setsockopt(fd, SOL_SOCKET, SRTO_IPV6ONLY, &enable, sizeof(enable));
+
+    int lossmaxttlvalue = 40;
     srt_setsockopt(fd, SOL_SOCKET, SRTO_LOSSMAXTTL, &lossmaxttlvalue, sizeof(lossmaxttlvalue));
+
+    if (srtla_patches) {
+        int srtla_enable = 1;
+        if (srt_setsockopt(fd, SOL_SOCKET, SRTO_SRTLAPATCHES, &srtla_enable, sizeof(srtla_enable)))
+            sls_log(SLS_LOG_WARNING, "[%p]CSLSSrt::libsrt_setup, setsockopt(SRTO_SRTLAPATCHES) failed.", this);
+        else
+            sls_log(SLS_LOG_INFO, "[%p]CSLSSrt::libsrt_setup, SRTLA patches enabled on port %d.", this, port);
+
+        // FC and RCVBUF left at SRT defaults for now — high values (FC=128000, RCVBUF=100MB)
+        // cause sender buffer spikes during stalls, triggering aggressive ABR bitrate drops
+        // with no recovery. Needs further investigation.
+    }
 
     /* Set the socket's send or receive buffer sizes, if specified.
        If unspecified or setting fails, system default is used. */
@@ -203,14 +215,6 @@ int CSLSSrt::libsrt_setup(int port, bool srtla_patches)
     if (s->reuse) {
         if (srt_setsockopt(fd, SOL_SOCKET, SRTO_REUSEADDR, &s->reuse, sizeof(s->reuse)))
             sls_log(SLS_LOG_WARNING, "[%p]CSLSSrt::libsrt_setup, setsockopt(SRTO_REUSEADDR) failed.", this);
-    }
-
-    if (srtla_patches) {
-        int srtla_enable = 1;
-        if (srt_setsockopt(fd, SOL_SOCKET, SRTO_SRTLAPATCHES, &srtla_enable, sizeof(srtla_enable)))
-            sls_log(SLS_LOG_WARNING, "[%p]CSLSSrt::libsrt_setup, setsockopt(SRTO_SRTLAPATCHES) failed.", this);
-        else
-            sls_log(SLS_LOG_INFO, "[%p]CSLSSrt::libsrt_setup, SRTLA patches enabled on port %d.", this, port);
     }
 
     ret = srt_bind(fd, ai->ai_addr, ai->ai_addrlen);
@@ -453,6 +457,14 @@ int CSLSSrt::libsrt_getpeeraddr(char * peer_name, int& port)
 
 int CSLSSrt::libsrt_get_statistics(SRT_TRACEBSTATS *currentStats, int clear) {
     int result = srt_bistats(m_sc.fd, currentStats, clear, 1);
+    if (result == SLS_ERROR) {
+        return SLS_ERROR;
+    }
+    return SLS_OK;
+}
+
+int CSLSSrt::libsrt_get_srtla_stats(SRT_SRTLA_STATS *stats) {
+    int result = srt_srtla_stats(m_sc.fd, stats);
     if (result == SLS_ERROR) {
         return SLS_ERROR;
     }

@@ -11,7 +11,7 @@ RUN apk update \
     && rm -rf /tmp/cpp-httplib
 
 # Clone, build and install belabox-patched SRT
-RUN git clone https://github.com/OpenIRL/srt.git srt \
+RUN git clone -b feature/srtla-stats https://github.com/OpenIRL/srt.git srt \
     && cd srt \
     && ./configure \
     && make -j$(nproc) \

@@ -96,6 +96,7 @@ public :
     int         on_connect();
     int         on_close();
     int         get_statistics(SRT_TRACEBSTATS *currentStats, int clear);
+    int         get_srtla_statistics(SRT_SRTLA_STATS *stats);
     int         get_bitrate();
     int         get_uptime();
     int         get_latency() { return m_latency; }

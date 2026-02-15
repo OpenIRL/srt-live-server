@@ -311,6 +311,25 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear, 
     return ret;
 }
 
+static void append_srtla_peers(json &ret, CSLSRole *role) {
+    SRT_SRTLA_STATS srtla_stats;
+    if (role->get_srtla_statistics(&srtla_stats) == SLS_OK && srtla_stats.valid) {
+        ret["bitrate"] = srtla_stats.totalBitrate;
+        json peers = json::array();
+        for (int i = 0; i < srtla_stats.numPeers; i++) {
+            char id_hex[9];
+            snprintf(id_hex, sizeof(id_hex), "%08x", srtla_stats.peers[i].connectionId);
+            json peer = json::object();
+            peer["connection_id"]  = std::string(id_hex);
+            peer["bitrate"] = srtla_stats.peers[i].bitrate;
+            peer["jitter"] = srtla_stats.peers[i].jitter / 1000.0;  // us -> ms
+            peer["uptime"] = srtla_stats.peers[i].uptime;
+            peers.push_back(peer);
+        }
+        ret["peers"] = peers;
+    }
+}
+
 json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int clear) {
     json ret = json::object();
     SRT_TRACEBSTATS stats;
@@ -343,6 +362,7 @@ json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
     ret["bitrate"]          = role->get_bitrate(); // in kbps
     ret["uptime"]           = role->get_uptime(); // in seconds
     ret["latency"]          = role->get_latency(); // in ms
+    append_srtla_peers(ret, role);
     return ret;
 }
 
