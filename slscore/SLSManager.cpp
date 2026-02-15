@@ -61,8 +61,8 @@ CSLSManager::CSLSManager()
     m_map_data       = NULL;
     m_map_publisher  = NULL;
     m_map_puller     = NULL;
-    m_map_pusher     = NULL;
 
+    m_map_pusher     = NULL;
 }
 
 CSLSManager::~CSLSManager()
@@ -219,6 +219,11 @@ int CSLSManager::start()
 }
 
 char* CSLSManager::find_publisher_by_player_key(char *player_key) {
+    if (player_key == NULL || strlen(player_key) == 0) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, empty player key provided", this);
+        return NULL;
+    }
+
     // First check stream ID database
     std::string publisher_id = CSLSDatabase::getInstance().getPublisherFromPlayer(player_key);
     if (!publisher_id.empty()) {
@@ -228,10 +233,10 @@ char* CSLSManager::find_publisher_by_player_key(char *player_key) {
 
         return mapped_publisher;
     }
-    
+
     sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' not found in database",
             this, player_key);
-    
+
     // If not found in database, check if it's a direct publisher key
     CSLSRole* role = nullptr;
     for (int i = 0; i < m_server_count; i++) {
@@ -240,13 +245,13 @@ char* CSLSManager::find_publisher_by_player_key(char *player_key) {
             break;
         }
     }
-    
+
     if (role != NULL) {
         sls_log(SLS_LOG_INFO, "[%p]CSLSManager::find_publisher_by_player_key, player key '%s' is a publisher key",
                 this, player_key);
         return player_key;
     }
-    
+
     sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::find_publisher_by_player_key, no publisher found for player key '%s'",
             this, player_key);
     return NULL;
@@ -309,6 +314,45 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear, 
             this, legacy ? "legacy" : "modern", publisher_key.c_str(), playerKey.c_str());
     
     return ret;
+}
+
+bool CSLSManager::disconnect_publisher(const std::string& key) {
+    if (key.empty()) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, empty key provided", this);
+        return false;
+    }
+
+    char* mapped_publisher = find_publisher_by_player_key(const_cast<char*>(key.c_str()));
+    if (mapped_publisher == NULL) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, unable to resolve publisher for key: %s", this, key.c_str());
+        return false;
+    }
+
+    std::string publisher_key(mapped_publisher);
+
+    // Search for the publisher in all server instances using resolved publisher key
+    CSLSRole *role = nullptr;
+    for (int i = 0; i < m_server_count; i++) {
+        CSLSMapPublisher *publisher_map = &m_map_publisher[i];
+        role = publisher_map->get_publisher(publisher_key.c_str());
+        if (role != nullptr) {
+            break;
+        }
+    }
+    if (role == nullptr) {
+        sls_log(SLS_LOG_WARNING, "[%p]CSLSManager::disconnect_publisher, publisher not found for key: %s (resolved publisher: %s)",
+                this, key.c_str(), publisher_key.c_str());
+        return false;
+    }
+
+    // Disconnect the publisher
+    sls_log(SLS_LOG_INFO, "[%p]CSLSManager::disconnect_publisher, disconnecting publisher: %s (requested key: %s)",
+            this, publisher_key.c_str(), key.c_str());
+    // Call on_close to notify any HTTP callbacks
+    role->on_close();
+    // Mark the role as invalid to trigger cleanup in the next cycle
+    role->invalid_srt();
+    return true;
 }
 
 json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int clear) {

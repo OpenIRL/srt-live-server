@@ -29,7 +29,7 @@ ENV LD_LIBRARY_PATH=/lib:/usr/lib:/usr/local/lib64
 
 # Install runtime dependencies
 RUN apk update \
-    && apk add --no-cache openssl libstdc++ supervisor coreutils procps net-tools sqlite sqlite-dev \
+    && apk add --no-cache openssl libstdc++ supervisor coreutils procps net-tools sqlite sqlite-dev spdlog \
     && rm -rf /var/cache/apk/*
 
 # Copy binaries from the builder stage

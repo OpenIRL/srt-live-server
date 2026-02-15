@@ -176,6 +176,11 @@ void CSLSApiServer::setupEndpoints() {
     m_server.Post("/api/keys", [this](const httplib::Request& req, httplib::Response& res) {
         handleApiKeys(req, res);
     });
+    
+    // Publisher disconnect endpoint
+    m_server.Delete(R"(/api/disconnect/(.+))", [this](const httplib::Request& req, httplib::Response& res) {
+        handleDisconnectPublisher(req, res);
+    });
 }
 
 void CSLSApiServer::handleHealth(const httplib::Request& req, httplib::Response& res) {
@@ -439,5 +444,67 @@ void CSLSApiServer::handleApiKeys(const httplib::Request& req, httplib::Response
         error["status"] = "error";
         error["message"] = "Failed to create API key";
         res.set_content(error.dump(), "application/json");
+    }
+}
+
+void CSLSApiServer::handleDisconnectPublisher(const httplib::Request& req, httplib::Response& res) {
+    setCorsHeaders(res);
+    
+    // Rate limiting
+    if (!checkRateLimit(req.remote_addr, "api")) {
+        res.status = 429;
+        json error;
+        error["status"] = "error";
+        error["message"] = "Rate limit exceeded";
+        res.set_content(error.dump(), "application/json");
+        return;
+    }
+    
+    // Authentication with admin or write permissions check
+    std::string permissions;
+    if (!authenticateRequest(req, res, permissions)) {
+        return;
+    }
+    
+    if (permissions != "admin" && permissions != "write") {
+        res.status = 403;
+        json error;
+        error["status"] = "error";
+        error["message"] = "Admin or write permissions required";
+        res.set_content(error.dump(), "application/json");
+        CSLSDatabase::getInstance().logAccess(req.get_header_value("Authorization").substr(7), 
+                             req.path, req.method, req.remote_addr, 403);
+        return;
+    }
+    
+    std::string publisher_id = req.matches[1];
+    
+    if (!m_sls_manager) {
+        res.status = 500;
+        json error;
+        error["status"] = "error";
+        error["message"] = "SLS manager not available";
+        res.set_content(error.dump(), "application/json");
+        return;
+    }
+    
+    // Attempt to disconnect the publisher
+    if (m_sls_manager->disconnect_publisher(publisher_id)) {
+        json response;
+        response["status"] = "success";
+        response["message"] = "Publisher disconnected successfully";
+        res.set_content(response.dump(), "application/json");
+        
+        CSLSDatabase::getInstance().logAccess(req.get_header_value("Authorization").substr(7), 
+                             req.path, req.method, req.remote_addr, 200);
+    } else {
+        res.status = 404;
+        json error;
+        error["status"] = "error";
+        error["message"] = "Publisher not found or not currently streaming";
+        res.set_content(error.dump(), "application/json");
+        
+        CSLSDatabase::getInstance().logAccess(req.get_header_value("Authorization").substr(7), 
+                             req.path, req.method, req.remote_addr, 404);
     }
 } 
