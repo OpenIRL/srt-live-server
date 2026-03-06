@@ -70,6 +70,42 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 curl http://hostname:8080/stats/live
 ```
 
+The stats endpoint returns publisher metrics. When using SRTLA (link aggregation), per-peer connection stats are included:
+
+```json
+{
+  "status": "ok",
+  "publisher": {
+    "bitrate": 8000,
+    "rtt": 15.5,
+    "buffer": 2920,
+    "dropped_pkts": 30,
+    "uptime": 3600,
+    "latency": 3000,
+    "peers": [
+      {
+        "connection_id": "a3f2b1c0",
+        "bitrate": 5000,
+        "jitter": 1.2
+      },
+      {
+        "connection_id": "7e4d9f12",
+        "bitrate": 3000,
+        "jitter": 4.8
+      }
+    ]
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `connection_id` | Anonymized identifier per SRTLA connection (stable per session) |
+| `bitrate` | Current bitrate in kbps for this connection (updated every 1s) |
+| `jitter` | Smoothed network jitter in milliseconds (RFC 3550 EWMA, lower = more stable) |
+
+The `peers` array is only present when SRTLA connections are active. Use `legacy=1` query parameter for the legacy stats format (without peers).
+
 ## Streaming URLs
 
 ### Publisher (Input)

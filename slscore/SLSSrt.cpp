@@ -459,3 +459,11 @@ int CSLSSrt::libsrt_get_statistics(SRT_TRACEBSTATS *currentStats, int clear) {
     return SLS_OK;
 }
 
+int CSLSSrt::libsrt_get_srtla_stats(SRT_SRTLA_STATS *stats) {
+    int result = srt_srtla_stats(m_sc.fd, stats);
+    if (result == SLS_ERROR) {
+        return SLS_ERROR;
+    }
+    return SLS_OK;
+}
+
