@@ -122,7 +122,7 @@ public :
     int  libsrt_getsockstate();
     int  libsrt_getpeeraddr(char * peer_name, int& port);
     int libsrt_get_statistics(SRT_TRACEBSTATS *currentStats, int clear);
-
+    int libsrt_get_srtla_stats(SRT_SRTLA_STATS *stats);
 
     static int  libsrt_neterrno();
     static void libsrt_print_error_info();

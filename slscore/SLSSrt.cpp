@@ -184,7 +184,7 @@ int CSLSSrt::libsrt_setup(int port, bool srtla_patches)
 */
 
     int enable = 0;
-    int lossmaxttlvalue = 40;
+    int lossmaxttlvalue = 50;
 
     srt_setsockopt(fd, SOL_SOCKET, SRTO_IPV6ONLY, &enable, sizeof(enable));
     srt_setsockopt(fd, SOL_SOCKET, SRTO_LOSSMAXTTL, &lossmaxttlvalue, sizeof(lossmaxttlvalue));
@@ -453,6 +453,14 @@ int CSLSSrt::libsrt_getpeeraddr(char * peer_name, int& port)
 
 int CSLSSrt::libsrt_get_statistics(SRT_TRACEBSTATS *currentStats, int clear) {
     int result = srt_bistats(m_sc.fd, currentStats, clear, 1);
+    if (result == SLS_ERROR) {
+        return SLS_ERROR;
+    }
+    return SLS_OK;
+}
+
+int CSLSSrt::libsrt_get_srtla_stats(SRT_SRTLA_STATS *stats) {
+    int result = srt_srtla_stats(m_sc.fd, stats);
     if (result == SLS_ERROR) {
         return SLS_ERROR;
     }

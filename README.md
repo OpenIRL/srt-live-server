@@ -70,6 +70,51 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 curl http://hostname:8080/stats/live
 ```
 
+The stats endpoint returns publisher metrics. When using SRTLA (link aggregation), per-peer connection stats are included:
+
+```json
+{
+  "status": "ok",
+  "publisher": {
+    "bitrate": 8000,
+    "throughput": 8300,
+    "rtt": 15.5,
+    "buffer": 2920,
+    "dropped_pkts": 30,
+    "uptime": 3600,
+    "latency": 3000,
+    "peers": [
+      {
+        "connection_id": "a3f2b1c0",
+        "bitrate": 5000,
+        "throughput": 5200,
+        "jitter": 1.2,
+        "uptime": 3600
+      },
+      {
+        "connection_id": "7e4d9f12",
+        "bitrate": 3000,
+        "throughput": 3100,
+        "jitter": 4.8,
+        "uptime": 3580
+      }
+    ]
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `connection_id` | Anonymized identifier per SRTLA connection (stable per session) |
+| `bitrate` | Usable payload bitrate in kbps for this connection (updated every 1s) |
+| `throughput` | Total network throughput in kbps including retransmissions; `publisher.throughput` is the sum across all connections |
+| `jitter` | Smoothed network jitter in milliseconds (RFC 3550 EWMA, lower = more stable) |
+| `uptime` | Connection uptime in seconds |
+
+The `peers` array is only present when SRTLA connections are active.
+
+> **Deprecated:** The `legacy=1` query parameter returns the old stats format (under `publishers.live`, without `peers`) for compatibility with older clients such as NOALBS < 2.14.0. It is deprecated and will be removed in a future release — migrate to the default format above. Responses to `legacy=1` requests include a `Deprecation: true` header.
+
 ## Streaming URLs
 
 ### Publisher (Input)

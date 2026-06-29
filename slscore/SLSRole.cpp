@@ -497,6 +497,13 @@ int CSLSRole::get_statistics(SRT_TRACEBSTATS *currentStats, int clear) {
     return SLS_ERROR;
 }
 
+int CSLSRole::get_srtla_statistics(SRT_SRTLA_STATS *stats) {
+    if (m_srt) {
+        return m_srt->libsrt_get_srtla_stats(stats);
+    }
+    return SLS_ERROR;
+}
+
 int CSLSRole::get_bitrate() {
     return m_kbitrate;
 }

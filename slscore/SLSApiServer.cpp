@@ -27,6 +27,7 @@
 #include "SLSLog.hpp"
 #include "version.hpp"
 #include <cstring>
+#include <atomic>
 
 CSLSApiServer::CSLSApiServer() : m_port(8080), m_sls_manager(nullptr), m_conf(nullptr) {
 }
@@ -368,9 +369,17 @@ void CSLSApiServer::handleStats(const httplib::Request& req, httplib::Response& 
         return;
     }
 
-    // Check if legacy format is requested
+    // Check if legacy (deprecated) format is requested
     bool legacy_format = req.has_param("legacy") && req.get_param_value("legacy") == "1";
-    
+    if (legacy_format) {
+        res.set_header("Deprecation", "true");
+        res.set_header("Warning", "299 - \"The legacy stats format is deprecated and will be removed in a future release. Use the default stats format.\"");
+        static std::atomic<bool> legacy_warned{false};
+        if (!legacy_warned.exchange(true)) {
+            sls_log(SLS_LOG_WARNING, "[CSLSApiServer] Deprecated legacy stats format requested (legacy=1); it will be removed in a future release.");
+        }
+    }
+
     // Use the updated method with legacy parameter
     ret = m_sls_manager->generate_json_for_publisher(req.matches[1], req.has_param("reset") ? 1 : 0, legacy_format);
 

@@ -311,6 +311,30 @@ json CSLSManager::generate_json_for_publisher(std::string playerKey, int clear, 
     return ret;
 }
 
+static void append_srtla_peers(json &ret, CSLSRole *role) {
+    SRT_SRTLA_STATS srtla_stats;
+    if (role->get_srtla_statistics(&srtla_stats) == SLS_OK && srtla_stats.valid) {
+        ret["bitrate"] = srtla_stats.totalBitrate;
+        uint32_t total_throughput = 0;
+        json peers = json::array();
+        for (int i = 0; i < srtla_stats.numPeers; i++) {
+            char id_hex[9];
+            snprintf(id_hex, sizeof(id_hex), "%08x", srtla_stats.peers[i].connectionId);
+            json peer = json::object();
+            peer["connection_id"]  = std::string(id_hex);
+            peer["bitrate"] = srtla_stats.peers[i].bitrate;
+            peer["throughput"] = srtla_stats.peers[i].throughput;
+            peer["jitter"] = srtla_stats.peers[i].jitter / 1000.0;  // us -> ms
+            peer["uptime"] = srtla_stats.peers[i].uptime;
+            peers.push_back(peer);
+            total_throughput += srtla_stats.peers[i].throughput;
+        }
+        ret["throughput"] = total_throughput;
+        ret["peers"] = peers;
+    }
+}
+
+// Deprecated: legacy stats format, scheduled for removal in a future release.
 json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int clear) {
     json ret = json::object();
     SRT_TRACEBSTATS stats;
@@ -326,6 +350,7 @@ json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int cle
     ret["msRcvBuf"]         = stats.msRcvBuf;
     ret["mbpsBandwidth"]    = stats.mbpsBandwidth;
     ret["bitrate"]          = role->get_bitrate(); // in kbps
+    ret["throughput"]       = static_cast<uint32_t>(stats.mbpsRecvRate * 1000); // Mbps -> kbps
     ret["uptime"]           = role->get_uptime(); // in seconds
     ret["latency"]          = role->get_latency(); // in ms
     return ret;
@@ -341,8 +366,10 @@ json CSLSManager::create_json_stats_for_publisher(CSLSRole *role, int clear) {
     ret["rtt"]              = stats.msRTT;
     ret["buffer"]           = stats.msRcvBuf;
     ret["bitrate"]          = role->get_bitrate(); // in kbps
+    ret["throughput"]       = static_cast<uint32_t>(stats.mbpsRecvRate * 1000); // Mbps -> kbps
     ret["uptime"]           = role->get_uptime(); // in seconds
     ret["latency"]          = role->get_latency(); // in ms
+    append_srtla_peers(ret, role); // overrides bitrate and throughput with SRTLA values if available
     return ret;
 }
 
