@@ -437,10 +437,11 @@ bool CSLSDatabase::createApiKey(const std::string& name, const std::string& perm
 
 bool CSLSDatabase::validateStreamId(const char* stream_id, bool is_publisher, char* mapped_id) {
     if (!m_initialized) {
-        // Allow all if database is not available (fallback mode)
-        return true;
+        // Fail closed when the database is unavailable.
+        sls_log(SLS_LOG_ERROR, "[CSLSDatabase] Rejecting stream id '%s': database not initialized", stream_id);
+        return false;
     }
-    
+
     try {
         auto stream_ids = getStreamIds();
         
@@ -465,8 +466,9 @@ bool CSLSDatabase::validateStreamId(const char* stream_id, bool is_publisher, ch
             return false;
         }
     } catch (const std::exception& e) {
-        sls_log(SLS_LOG_ERROR, "[CSLSDatabase] Error validating stream ID: %s", e.what());
-        return true; // Allow in case of error
+        // Fail closed on validation errors.
+        sls_log(SLS_LOG_ERROR, "[CSLSDatabase] Error validating stream ID '%s', rejecting: %s", stream_id, e.what());
+        return false;
     }
 }
 
