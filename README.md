@@ -77,6 +77,7 @@ The stats endpoint returns publisher metrics. When using SRTLA (link aggregation
   "status": "ok",
   "publisher": {
     "bitrate": 8000,
+    "throughput": 8300,
     "rtt": 15.5,
     "buffer": 2920,
     "dropped_pkts": 30,
@@ -86,12 +87,16 @@ The stats endpoint returns publisher metrics. When using SRTLA (link aggregation
       {
         "connection_id": "a3f2b1c0",
         "bitrate": 5000,
-        "jitter": 1.2
+        "throughput": 5200,
+        "jitter": 1.2,
+        "uptime": 3600
       },
       {
         "connection_id": "7e4d9f12",
         "bitrate": 3000,
-        "jitter": 4.8
+        "throughput": 3100,
+        "jitter": 4.8,
+        "uptime": 3580
       }
     ]
   }
@@ -101,8 +106,10 @@ The stats endpoint returns publisher metrics. When using SRTLA (link aggregation
 | Field | Description |
 |-------|-------------|
 | `connection_id` | Anonymized identifier per SRTLA connection (stable per session) |
-| `bitrate` | Current bitrate in kbps for this connection (updated every 1s) |
+| `bitrate` | Usable payload bitrate in kbps for this connection (updated every 1s) |
+| `throughput` | Total network throughput in kbps including retransmissions; `publisher.throughput` is the sum across all connections |
 | `jitter` | Smoothed network jitter in milliseconds (RFC 3550 EWMA, lower = more stable) |
+| `uptime` | Connection uptime in seconds |
 
 The `peers` array is only present when SRTLA connections are active. Use `legacy=1` query parameter for the legacy stats format (without peers).
 
