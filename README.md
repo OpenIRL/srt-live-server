@@ -111,7 +111,9 @@ The stats endpoint returns publisher metrics. When using SRTLA (link aggregation
 | `jitter` | Smoothed network jitter in milliseconds (RFC 3550 EWMA, lower = more stable) |
 | `uptime` | Connection uptime in seconds |
 
-The `peers` array is only present when SRTLA connections are active. Use `legacy=1` query parameter for the legacy stats format (without peers).
+The `peers` array is only present when SRTLA connections are active.
+
+> **Deprecated:** The `legacy=1` query parameter returns the old stats format (under `publishers.live`, without `peers`) for compatibility with older clients such as NOALBS < 2.14.0. It is deprecated and will be removed in a future release — migrate to the default format above. Responses to `legacy=1` requests include a `Deprecation: true` header.
 
 ## Streaming URLs
 

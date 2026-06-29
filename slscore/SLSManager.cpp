@@ -334,6 +334,7 @@ static void append_srtla_peers(json &ret, CSLSRole *role) {
     }
 }
 
+// Deprecated: legacy stats format, scheduled for removal in a future release.
 json CSLSManager::create_legacy_json_stats_for_publisher(CSLSRole *role, int clear) {
     json ret = json::object();
     SRT_TRACEBSTATS stats;
