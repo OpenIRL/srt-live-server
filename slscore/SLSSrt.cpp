@@ -184,7 +184,7 @@ int CSLSSrt::libsrt_setup(int port, bool srtla_patches)
 */
 
     int enable = 0;
-    int lossmaxttlvalue = 40;
+    int lossmaxttlvalue = 50;
 
     srt_setsockopt(fd, SOL_SOCKET, SRTO_IPV6ONLY, &enable, sizeof(enable));
     srt_setsockopt(fd, SOL_SOCKET, SRTO_LOSSMAXTTL, &lossmaxttlvalue, sizeof(lossmaxttlvalue));
